@@ -64,3 +64,26 @@ function getSessionEndTime(session: Session): number {
 export function countPastSessions(sessions: Session[]): number {
   return sessions.filter(isSessionPast).length
 }
+
+/**
+ * Check if congress ended at least 1 day ago.
+ */
+export function isCongressOverForAtLeastOneDay(sessions: Session[]): boolean {
+  if (!sessions.length) return true
+  const now = Date.now()
+  const latestEnd = Math.max(...sessions.map(s => getSessionEndTime(s)))
+  const oneDayInMs = 24 * 60 * 60 * 1000
+  return latestEnd + oneDayInMs <= now
+}
+
+/**
+ * Check if congress starts at least 5 days in the future.
+ */
+export function isCongressAtLeastFiveDaysAway(sessions: Session[]): boolean {
+  if (!sessions.length) return false
+  const now = Date.now()
+  const earliestStart = Math.min(...sessions.map(s => s.start.getTime()))
+  const fiveDaysInMs = 5 * 24 * 60 * 60 * 1000
+  return earliestStart >= now + fiveDaysInMs
+}
+

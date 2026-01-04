@@ -11,10 +11,13 @@ import {
 } from '../data/storage'
 import { loadUserPreferences } from '../data/userPreferences'
 import { 
+  loadScheduleLibrary,
   getLastActiveScheduleMetadata, 
   clearLastActiveSchedule,
   type ScheduleMetadata 
 } from '../data/scheduleLibrary'
+import { getDefaultAutoReload } from './useViewParams'
+import { ensureNotificationPermission } from '../utils/reminders'
 
 export type ScheduleData = {
   scheduleKey: ScheduleKey
@@ -24,6 +27,7 @@ export type ScheduleData = {
   conferenceTimeZoneName?: string
   fetchedAt: string
   sessions: Session[]
+  autoReloadMinutes?: number | null
 }
 
 type ScheduleState = {
@@ -61,6 +65,11 @@ export function useScheduleManager() {
       }
       
       if (stored?.sessions?.length) {
+        const sessions = stored.sessions.map(s => ({ ...s, start: new Date(s.start) }))
+        const autoReloadMinutes = stored.autoReloadMinutes !== undefined 
+          ? stored.autoReloadMinutes 
+          : getDefaultAutoReload(sessions)
+        
         setState({
           data: {
             scheduleKey: stored.key,
@@ -69,7 +78,8 @@ export function useScheduleManager() {
             conferenceTitle: stored.conferenceTitle,
             conferenceTimeZoneName: stored.conferenceTimeZoneName,
             fetchedAt: stored.fetchedAt,
-            sessions: stored.sessions.map(s => ({ ...s, start: new Date(s.start) })),
+            sessions,
+            autoReloadMinutes,
           },
           loading: false,
           error: null,
@@ -102,9 +112,16 @@ export function useScheduleManager() {
           : makeKeyFromFile(params.sourceLabel ?? 'imported-schedule')
 
         console.log('[useScheduleManager] Saving new schedule with key:', key)
+        
+        // Check if this is the first schedule ever
+        const library = await loadScheduleLibrary()
+        const isFirstSchedule = library.schedules.length === 0
+        
         // Load existing user preferences for this schedule key
         const userPrefs = await loadUserPreferences(key)
         console.log('[useScheduleManager] Existing preferences found:', userPrefs.likedSessionIds.length, 'liked sessions')
+
+        const autoReloadMinutes = getDefaultAutoReload(params.sessions)
 
         await saveSchedule({
           key,
@@ -114,6 +131,7 @@ export function useScheduleManager() {
           conferenceTimeZoneName: params.conferenceTimeZoneName,
           fetchedAt: params.fetchedAt,
           sessions: params.sessions.map(s => ({ ...s, start: s.start.toISOString() })),
+          autoReloadMinutes,
         })
 
         setState({
@@ -125,10 +143,21 @@ export function useScheduleManager() {
             conferenceTimeZoneName: params.conferenceTimeZoneName,
             fetchedAt: params.fetchedAt,
             sessions: params.sessions,
+            autoReloadMinutes,
           },
           loading: false,
           error: null,
         })
+
+        // Request notification permission for first schedule
+        if (isFirstSchedule) {
+          console.log('[useScheduleManager] First schedule added, requesting notification permission')
+          try {
+            await ensureNotificationPermission()
+          } catch (error) {
+            console.warn('[useScheduleManager] Failed to request notification permission:', error)
+          }
+        }
 
         return { key, userPrefs }
       } catch (error) {
@@ -155,6 +184,10 @@ export function useScheduleManager() {
       }
 
       try {
+        const autoReloadMinutes = state.data.autoReloadMinutes !== undefined 
+          ? state.data.autoReloadMinutes 
+          : getDefaultAutoReload(params.sessions)
+
         await saveSchedule({
           key: state.data.scheduleKey,
           endpointUrl: state.data.endpointUrl,
@@ -163,6 +196,7 @@ export function useScheduleManager() {
           conferenceTimeZoneName: params.conferenceTimeZoneName,
           fetchedAt: params.fetchedAt,
           sessions: params.sessions.map(s => ({ ...s, start: s.start.toISOString() })),
+          autoReloadMinutes,
         })
 
         setState({
@@ -172,6 +206,7 @@ export function useScheduleManager() {
             conferenceTimeZoneName: params.conferenceTimeZoneName,
             fetchedAt: params.fetchedAt,
             sessions: params.sessions,
+            autoReloadMinutes,
           },
           loading: false,
           error: null,
@@ -203,6 +238,44 @@ export function useScheduleManager() {
     }
   }, [])
 
+  const updateAutoReloadMinutes = useCallback(
+    async (autoReloadMinutes: number | null) => {
+      if (!state.data) {
+        throw new Error('No active schedule to update')
+      }
+
+      try {
+        await saveSchedule({
+          key: state.data.scheduleKey,
+          endpointUrl: state.data.endpointUrl,
+          sourceLabel: state.data.sourceLabel,
+          conferenceTitle: state.data.conferenceTitle,
+          conferenceTimeZoneName: state.data.conferenceTimeZoneName,
+          fetchedAt: state.data.fetchedAt,
+          sessions: state.data.sessions.map(s => ({ ...s, start: s.start.toISOString() })),
+          autoReloadMinutes,
+        })
+
+        setState({
+          data: {
+            ...state.data,
+            autoReloadMinutes,
+          },
+          loading: false,
+          error: null,
+        })
+      } catch (error) {
+        console.error('Failed to update auto reload minutes:', error)
+        setState(prev => ({
+          ...prev,
+          error: error instanceof Error ? error.message : 'Failed to update auto reload',
+        }))
+        throw error
+      }
+    },
+    [state.data]
+  )
+
   return {
     scheduleData: state.data,
     loading: state.loading,
@@ -210,6 +283,7 @@ export function useScheduleManager() {
     loadSchedule,
     saveNewSchedule,
     updateSchedule,
+    updateAutoReloadMinutes,
     clearSchedule,
   }
 }

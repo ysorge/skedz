@@ -53,7 +53,7 @@ export default function EndpointScreen(props: {
   }, [showUrlModal])
 
   const hint = useMemo(() => {
-    if (!url.trim()) return 'Please enter a schema.json URL.'
+    if (!url.trim()) return 'Please enter a schedule.json URL.'
     try { new URL(url); return null } catch { return 'Please enter a valid URL.' }
   }, [url])
 
@@ -158,16 +158,7 @@ export default function EndpointScreen(props: {
         <span>Skedz</span>
       </div>
 
-      <div className="container" style={{ marginBottom: '16px' }}>
-        {props.showInstallButton && (
-          <div className="card">
-            <div className="cardBody" style={{ textAlign: 'center' }}>
-              <button className="btn btnInstallApp" onClick={props.onInstall}>
-                Install App
-              </button>
-            </div>
-          </div>
-        )}
+      <div className="container">
 
         <div className="card">
           <div className="cardHeader">
@@ -200,12 +191,30 @@ export default function EndpointScreen(props: {
         </div>
 
         <ScheduleLibrary onSelectSchedule={loadFromLibrary} />
+
+              
+        {props.showInstallButton && (
+          <div className="card" style={{ marginTop: '16px' }}>
+            <div className="cardBody" style={{ textAlign: 'center' }}>
+              <button className="btn btnInstallApp" onClick={props.onInstall}>
+                Install App
+              </button>
+            </div>
+          </div>
+        )}
+
+
+        <div style={{ textAlign: 'center', marginTop: '24px', paddingBottom: '20px' }}>
+          <div className="muted" style={{ fontSize: '12px' }}>
+            Version {import.meta.env.VITE_APP_VERSION || '0.1.0'}
+          </div>
+        </div>
       </div>
 
       <dialog ref={dialogRef}>
         <div className="modalHeader">
           <h3>Load from URL</h3>
-          <button className="btn" onClick={() => { setShowUrlModal(false); setError(null); }}>×</button>
+          <button className="btn btnClose" onClick={() => { setShowUrlModal(false); setError(null); }}>×</button>
         </div>
         <div className="modalBody">
           <div className="field">

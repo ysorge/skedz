@@ -124,12 +124,10 @@ export default function SessionModal(props: {
               </button>
               <button
                 ref={closeButtonRef}
-                className="btn"
+                className="btn btnClose"
                 onClick={props.onClose}
                 aria-label="Close session details"
-              >
-                Close
-              </button>
+              >×</button>
             </div>
           </div>
 

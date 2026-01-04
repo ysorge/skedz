@@ -10,16 +10,23 @@
   --day-header-text: #2b2b2b;
   --card-bg: white;
   --card-border: #c0c0c0;
-  --session-title: #247cff;
+  --card-level-2-border: #d9d9d9;
+  --session-title: #007bff;
   --heart-outline: #b5b5b5;
   --heart-filled: #fd375e;
   --button-outline: #b5b5b5;
+  --button-outline-text: gray;
   --button-filled: #fd375e;
   --button-filled-text: white;
+  --button-hover-bg: #ececec;
+  --button-hover-text: black;
+  --button-hover-border: black;
   --time-color: #808080;
   --muted: #808080;
+  --gray: gray;
   --live-dot: #fd375e;
   --past-session-opacity: 0.5;
+  --logo-color:#fd375e;
 }
 
 /* Dark mode */
@@ -32,15 +39,22 @@
     --day-header-text: white;
     --card-bg: #1d2938;
     --card-border: #38444d;
+    --card-level-2-border: #38444d;
     --session-title: #2995e1;
     --heart-outline: #2995e1;
     --heart-filled: #fd375e;
     --button-outline: #2995e1;
+    --button-outline-text: #2995e1;
     --button-filled: #fd375e;
     --button-filled-text: white;
+    --button-hover-bg: #1c2938;
+    --button-hover-text: white;
+    --button-hover-border: white;
     --time-color: #a5a9af;
     --muted: #a5a9af;
+    --gray: gray;
     --live-dot: #fd375e;
+    --logo-color:#2995e1;
   }
 }
 
@@ -188,19 +202,16 @@ button, input, select, textarea{ font:inherit; color:inherit; }
   font-weight: 500;
   transition: color 0.2s ease;
 }
-.navBar:hover {
-  color: var(--button-filled);
-}
+
 .navBar svg {
   flex-shrink: 0;
 }
 .navBarLogo {
   cursor: default;
   gap: 12px;
+  color: var(--logo-color);
 }
-.navBarLogo:hover {
-  color: var(--button-outline);
-}
+
 .navBarLogo img {
   flex-shrink: 0;
   display: block;
@@ -267,6 +278,12 @@ button, input, select, textarea{ font:inherit; color:inherit; }
 .sidebarCard .cardBody{
   padding: 0;
 }
+.sidebarSection {
+  margin-bottom: 24px;
+}
+.sidebarSection:last-child {
+  margin-bottom: 0;
+}
 .cardHeader{
   padding:14px 14px 0 14px;
 }
@@ -282,6 +299,10 @@ button, input, select, textarea{ font:inherit; color:inherit; }
 h1,h2,h3{ margin:0; }
 h1{ font-size:20px; color:var(--h1-color); }
 h2{ font-size:16px; color:var(--text); }
+.sidebarCard h2 {
+  font-size: 14px;
+  color: var(--gray);
+}
 .muted{ color:var(--muted); font-size:13px; line-height:1.3; }
 .row{ display:flex; gap:10px; align-items:center; }
 .stack{ display:flex; flex-direction:column; gap:10px; }
@@ -290,7 +311,10 @@ h2{ font-size:16px; color:var(--text); }
   flex-direction:column;
   gap:6px;
 }
-.field label{ font-size:12px; color:var(--muted); }
+.field label{ 
+  font-size:12px; 
+  color:var(--muted); 
+}
 input[type="text"], select{
   width:100%;
   padding:10px 12px;
@@ -298,7 +322,7 @@ input[type="text"], select{
   border:1px solid var(--button-outline);
   border-radius:12px;
   outline:none;
-  color: var(--button-outline);
+  color: var(--button-outline-text);
   transition: all 0.2s ease;
 }
 input[type="text"]:focus, select:focus{
@@ -308,8 +332,9 @@ input[type="text"]:focus, select:focus{
 select[data-active="true"],
 input[type="text"][data-active="true"]{
   background: var(--button-filled);
-  border-color: var(--button-filled);
+  border-color: var(--button-outline);
   color: var(--button-filled-text);
+  font-weight: bold;
 }
 .btn{
   padding:10px 12px;
@@ -317,30 +342,22 @@ input[type="text"][data-active="true"]{
   background: transparent;
   border-radius:12px;
   cursor:pointer;
-  color: var(--button-outline);
+  color: var(--button-outline-text);
   transition: all 0.2s ease;
 }
 .btn:hover{
-  border-color: var(--button-filled);
-  color: var(--button-filled);
+  border-color: var(--button-hover-border);
+  background: var(--button-hover-bg);
+  color: var(--button-hover-text);
+  cursor: pointer;
 }
 .btnBack{
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid var(--button-outline);
-  background: transparent;
-  border-radius: 12px;
   cursor: pointer;
-  color: var(--button-outline);
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  color: var(--session-title);
 }
 .btnBack:hover{
-  border-color: var(--button-filled);
-  color: var(--button-filled);
+  color: var(--button-hover-text);
+  cursor: pointer;
 }
 .btnBack svg{
   flex-shrink: 0;
@@ -367,6 +384,80 @@ input[type="text"][data-active="true"]{
   font-size:12px;
   text-align: center;
 }
+.sidebarCard input[type="text"]:hover,
+.sidebarCard select:not([data-active="true"]):hover,
+.sidebarCard .btn:hover{
+  border-color: var(--button-hover-border);
+  background: var(--button-hover-bg);
+  color: var(--button-hover-text);
+  cursor: pointer;
+}
+.sidebarCard input[type="text"][data-active="true"]:hover{
+  border-color: var(--button-outline);
+  background: transparent;
+  color: var(--button-filled-text);
+}
+.sidebarCard input[type="text"]:not([data-active="true"]),
+.sidebarCard select:not([data-active="true"]),
+.sidebarCard .btn:not(.btnPrimary):not(.btnDanger){
+  color: var(--button-outline-text);
+}
+
+/* Export dropdown */
+.exportDropdown {
+  background: white;
+  border: 1px solid var(--button-outline);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.exportOption {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: black;
+  font-size: 12px;
+  transition: background-color 0.2s ease;
+}
+
+.exportOption:hover {
+  background: #f0f0f0;
+}
+
+.exportOption:not(:last-child) {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .exportDropdown {
+    background: black;
+  }
+  
+  .exportOption {
+    color: var(--button-outline);
+  }
+  
+  .exportOption:hover {
+    background: #1a1a1a;
+  }
+  
+  .exportOption:not(:last-child) {
+    border-bottom: 1px solid #2a2a2a;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .sidebarCard input[type="text"]:not([data-active="true"]),
+  .sidebarCard select:not([data-active="true"]),
+  .sidebarCard .btn:not(.btnPrimary):not(.btnDanger){
+    color: var(--button-outline);
+  }
+}
 @media (max-width: 900px){
   .collapsibleBody input[type="text"],
   .collapsibleBody select,
@@ -386,6 +477,7 @@ input[type="text"][data-active="true"]{
 @media (max-width: 900px) {
   .collapsibleSection {
     margin-bottom: 5px;
+    overflow: visible;
   }
   
   .collapsibleHeader {
@@ -397,9 +489,9 @@ input[type="text"][data-active="true"]{
     background: var(--card-bg);
     border: 1px solid var(--button-outline);
     border-radius: 12px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 500;
-    color: var(--text);
+    color: var(--button-outline-text);
     cursor: pointer;
     transition: all 0.2s ease;
   }
@@ -410,7 +502,10 @@ input[type="text"][data-active="true"]{
   }
   
   .collapsibleHeader:hover {
-    border-color: var(--session-title);
+    border-color: var(--button-hover-border);
+    background: var(--button-hover-bg);
+    color: var(--button-hover-text);
+    cursor: pointer;
   }
   
   .collapsibleArrow {
@@ -439,13 +534,14 @@ input[type="text"][data-active="true"]{
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
+    overflow: visible;
   }
   
   .collapsibleBody .field,
   .collapsibleBody .row,
   .collapsibleBody .btn,
   .collapsibleBody > * {
-    grid-column: span 2;
+    grid-column: span 1;
   }
   
   .collapsibleBody .field:has(select),
@@ -457,6 +553,10 @@ input[type="text"][data-active="true"]{
   .sessionRowTable .timeRangeSeparator,
   .sessionRowTable .timeRangeEnd {
     display: none;
+  }
+
+  .collapsibleBody .span-2 {
+    grid-column: span 2;
   }
 }
 
@@ -489,11 +589,21 @@ input[type="text"][data-active="true"]{
   font-size:12px;
   color:var(--muted);
   background: transparent;
+  margin-right:6px;
 }
 .list{
   display:flex;
   flex-direction:column;
   gap:10px;
+}
+.daySection {
+  margin-bottom: 24px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .35);
+  overflow: hidden;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 .dayHeader{
   padding:12px 14px;
@@ -505,6 +615,7 @@ input[type="text"][data-active="true"]{
   font-weight: 600;
   transition: background-color 0.3s ease, color 0.3s ease;
   text-align: center;
+  margin-bottom:7px;
 }
 .sessionRow{
   display:grid;
@@ -519,11 +630,15 @@ input[type="text"][data-active="true"]{
   background: var(--day-header-bg);
 }
 .time{
-  font-variant-numeric: tabular-nums;
   color: var(--time-color);
   font-size: 13px;
 }
-.sessionTitle{ font-size:14px; line-height:1.25; color: var(--session-title); font-weight: 500; }
+.sessionTitle{ 
+  font-size:14px; 
+  line-height:1.25; 
+  color: var(--session-title); 
+  font-weight: bold;
+}
 .metaLine{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
 dialog{
   width:min(780px, 92vw);
@@ -540,11 +655,14 @@ dialog::backdrop{
 }
 .modalHeader{
   padding:14px;
-  border-bottom:1px solid var(--card-border);
+  /*border-bottom:1px solid var(--card-border);*/
   display:flex;
   justify-content:space-between;
   gap:12px;
   align-items:flex-start;
+}
+.modal .modalHeader {
+  padding:0px;
 }
 .modalBody{
   padding:14px;
@@ -566,8 +684,8 @@ dialog::backdrop{
   box-shadow: 0 0 0 3px rgba(41, 149, 225, 0.15);
 }
 .mono{
-  font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  /*font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;*/
   font-size:12px;
   color:var(--muted);
 }
@@ -667,8 +785,8 @@ dialog::backdrop{
   height: 10px;
   background: var(--live-dot);
   border-radius: 50%;
-  //animation: pulse 2s ease-in-out infinite;
-  //box-shadow: 0 0 8px var(--live-dot);
+  /* animation: pulse 2s ease-in-out infinite; */
+  /* box-shadow: 0 0 8px var(--live-dot); */
 }
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -733,11 +851,21 @@ dialog::backdrop{
   .sessionRowTable{ gap: 8px; }
 }
 
+.modalContent h3 {
+  font-size:14px;
+  margin-bottom:7px;
+}
+
+.modalContent {
+  font-size:14px;
+}
+
 /* Prose/Markdown content styling */
 .prose{
-  line-height:1.6;
+  line-height:1.3;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  font-size:14px;
 }
 .prose p{
   margin:0 0 0.8em 0;

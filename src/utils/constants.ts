@@ -15,5 +15,6 @@ export const REMINDER_OFFSET_OPTIONS = [0, 10] as const
 export const MAX_REMINDER_ADVANCE_HOURS = 24
 
 // Auto-reload defaults
-export const DEFAULT_AUTO_RELOAD_MINUTES = 10
+export const DEFAULT_AUTO_RELOAD_MINUTES = 60
 export const MIN_AUTO_RELOAD_MINUTES = 1
+export const AUTO_RELOAD_BEFORE_CONGRESS = 12 * 60 // 12 hours in minutes

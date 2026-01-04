@@ -122,7 +122,7 @@ export default function SessionList(props: {
   const firstDayKey = grouped.length > 0 ? grouped[0].dayKey : null
 
   return (
-    <div className="card">
+    <div>
       <div className="cardHeader" style={{ display: 'none' }}>
         <div className="titleRow">
           <span className="pill">{props.viewMode === 'table' ? 'Table' : 'Cards'}</span>
@@ -144,7 +144,7 @@ export default function SessionList(props: {
           }
           
           return (
-          <div key={g.dayKey}>
+          <div key={g.dayKey} className="daySection">
             <div className="dayHeader">
               <div className="dayHeaderTitle">{formatDayLabel(g.dayKey)} &ndash; {g.sessions.length} sessions</div>
             </div>
@@ -203,11 +203,11 @@ export default function SessionList(props: {
                           {isCurrent && <div className="liveIndicator" title="Session is live now" />}
                         </div>
                       )}
-                      <div className="mono">
+                      <div className="time">
                         {from}
                         {to && (
                           <>
-                            <span className="timeRangeSeparator"> - </span>
+                            <span className="timeRangeSeparator">-</span>
                             <span className="timeRangeEnd">{to}</span>
                           </>
                         )}

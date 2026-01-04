@@ -17,6 +17,7 @@ export type StoredSchedule = {
   conferenceTimeZoneName?: string
   fetchedAt: string // ISO
   sessions: Array<Omit<Session, 'start'> & { start: string }>
+  autoReloadMinutes?: number | null
 }
 
 type Index = {

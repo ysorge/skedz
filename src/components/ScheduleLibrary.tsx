@@ -103,17 +103,17 @@ export default function ScheduleLibrary(props: {
               style={{
                 padding: '12px',
                 background: 'var(--day-header-bg)',
-                border: '1px solid var(--border)',
+                border: '1px solid var(--card-level-2-border)',
                 borderRadius: '8px',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--accent)'
+                e.currentTarget.style.borderColor = 'var(--card-level-2-border)'
                 e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border)'
+                e.currentTarget.style.borderColor = 'var(--card-level-2-border)'
                 e.currentTarget.style.background = 'var(--day-header-bg)'
               }}
             >

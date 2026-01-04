@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import type { Filters } from '../utils/filters'
 import type { ViewParams } from '../hooks/useViewParams'
+import type { Session } from '../data/normalizeSchedule'
+import { getDefaultAutoReload } from '../hooks/useViewParams'
 import CollapsibleSection from './CollapsibleSection'
 
 export type ReminderSettings = {
@@ -8,19 +10,84 @@ export type ReminderSettings = {
   offsetMinutes: 0 | 10
 }
 
-function SelectRow(props: { label: string; value: any; onChange: (v: any) => void; options: Array<{ value: any; label: string }>; noActive?: boolean }) {
+function SelectRow(props: { label: string; value: any; onChange: (v: any) => void; options: Array<{ value: any; label: string }>; noActive?: boolean; hideLabel?: boolean }) {
   // Check if current value is different from the first option (default)
   const isActive = props.noActive ? false : (String(props.value) !== String(props.options[0]?.value))
   
   return (
     <div className="field">
-      <label>{props.label}</label>
+      {!props.hideLabel && <label>{props.label}</label>}
       <select value={String(props.value)} onChange={e => props.onChange(e.target.value)} data-active={isActive}>
         {props.options.map(o => (
           <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
         ))}
       </select>
     </div>
+  )
+}
+
+function ExportDropdown(props: {
+  onExportIcs: () => void
+  onExportJson: () => void
+  onExportCsv: () => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
+  const buttonRef = React.useRef<HTMLButtonElement>(null)
+  const dropdownRef = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
+          buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleToggle = () => {
+    if (!isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setDropdownPosition({
+        top: rect.bottom,
+        left: rect.left,
+        width: rect.width
+      })
+    }
+    setIsOpen(!isOpen)
+  }
+
+  return (
+    <>
+      <button ref={buttonRef} className="btn" onClick={handleToggle}>
+        Export
+      </button>
+      {isOpen && (
+        <div 
+          ref={dropdownRef}
+          className="exportDropdown" 
+          style={{
+            position: 'fixed',
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            width: `${dropdownPosition.width}px`,
+            zIndex: 9999
+          }}
+        >
+          <button className="exportOption" onClick={() => { props.onExportIcs(); setIsOpen(false) }}>
+            Download iCal
+          </button>
+          <button className="exportOption" onClick={() => { props.onExportJson(); setIsOpen(false) }}>
+            Download JSON
+          </button>
+          <button className="exportOption" onClick={() => { props.onExportCsv(); setIsOpen(false) }}>
+            Download CSV
+          </button>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -43,6 +110,10 @@ export default function FiltersSidebar(props: {
   canRefresh: boolean
   onRefresh: () => void
   refreshState: { busy: boolean; error: string | null; lastAttemptAt?: string }
+
+  autoReloadMinutes?: number | null
+  onChangeAutoReloadMinutes: (value: number | null) => void
+  sessions: Session[] | null
 
   likedCount: number
   showMyChoicesOnly: boolean
@@ -79,12 +150,12 @@ export default function FiltersSidebar(props: {
   if (!isMobile) {
     return (
       <div className="card sidebarCard">
-      <div className="cardHeader">
-        <div className="titleRow">
-          <h2>Filters</h2>
-        </div>
-      </div>        
-      <div className="cardBody stack">
+
+        <div className="sidebarSection stack">
+
+          <div className="titleRow">
+            <h2>Filters</h2>
+          </div>
           <div className="field">
             <input type="text" value={f.q} onChange={e => set({ q: e.target.value })} placeholder="Search term" data-active={!!f.q} />
           </div>
@@ -123,75 +194,67 @@ export default function FiltersSidebar(props: {
               {props.facets.languages.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
+        </div>
+        
 
-
-          <div className="titleRow">
-            <h2>View</h2>
-          </div>
-
-          <SelectRow
-            label="View mode"
-            value={vp.viewMode}
-            onChange={(v) => setVP({ viewMode: (v === 'table' ? 'table' : 'card') })}
-            noActive={true}
-            options={[
-              { value: 'card', label: 'Card view' },
-              { value: 'table', label: 'Table view (compact)' },
-            ]}
-          />
-
-          <SelectRow
-            label="Timezone"
-            value={vp.timezoneMode}
-            onChange={(v) => setVP({ timezoneMode: v === 'device' ? 'device' : 'schedule' })}
-            noActive={true}
-            options={[
-              { value: 'schedule', label: 'Schedule timezone' },
-              { value: 'device', label: 'Device timezone' },
-            ]}
-          />
+          <div className="sidebarSection stack">
+            <div className="titleRow">
+              <h2>View</h2>
+            </div>
 
           <div className="field">
-            <label>Time display</label>
-            <div className="stack" style={{ gap: 8 }}>
-              <label className="row" style={{ gap: 10 }}>
-                <input type="checkbox" checked={vp.showTimeRange} onChange={e => setVP({ showTimeRange: e.target.checked })} />
-                <span className="muted">Show time range (from - to)</span>
-              </label>
-              <label className="row" style={{ gap: 10 }}>
-                <input type="checkbox" checked={vp.showDuration} onChange={e => setVP({ showDuration: e.target.checked })} />
-                <span className="muted">Also show duration</span>
-              </label>
+            <select value={vp.viewMode} onChange={e => setVP({ viewMode: (e.target.value === 'table' ? 'table' : 'card') })}>
+              <option value="card">Card view</option>
+              <option value="table">Table view (compact)</option>
+            </select>
+          </div>
+
+          <div className="field">
+            <select value={vp.timezoneMode} onChange={e => setVP({ timezoneMode: e.target.value === 'device' ? 'device' : 'schedule' })}>
+              <option value="schedule">Schedule timezone</option>
+              <option value="device">Device timezone</option>
+            </select>
+          </div>
+
+          </div>
+
+          <div className="sidebarSection stack">
+            <div className="titleRow">
+              <h2>Refresh</h2>
             </div>
-          </div>
 
-          <div className="titleRow">
-            <h2>Refresh</h2>
-          </div>
+          {(() => {
+            const defaultValue = props.sessions ? getDefaultAutoReload(props.sessions) : 60
+            const currentValue = props.autoReloadMinutes !== undefined ? props.autoReloadMinutes : defaultValue
+            const isCustom = props.autoReloadMinutes !== undefined
+            
+            return (
+              <div className="field">
+                <select 
+                  value={currentValue === null ? 'never' : String(currentValue)}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    if (v === 'never') props.onChangeAutoReloadMinutes(null)
+                    else props.onChangeAutoReloadMinutes(Number(v))
+                  }}
+                  data-active={isCustom}
+                >
+                  <option value="never">Never</option>
+                  <option value="5">Every 5 minutes</option>
+                  <option value="10">Every 10 minutes</option>
+                  <option value="15">Every 15 minutes</option>
+                  <option value="30">Every 30 minutes</option>
+                  <option value="60">Every 60 minutes</option>
+                  <option value="720">Every 12 hours</option>
+                  <option value="1440">Every 24 hours</option>
+                </select>
+              </div>
+            )
+          })()}
 
-          <SelectRow
-            label="Auto reload"
-            value={vp.autoReloadMinutes === null ? 'never' : String(vp.autoReloadMinutes)}
-            onChange={(v) => {
-              if (v === 'never') setVP({ autoReloadMinutes: null })
-              else setVP({ autoReloadMinutes: Number(v) })
-            }}
-            noActive={true}
-            options={[
-              { value: 'never', label: 'Never' },
-              { value: '5', label: 'Every 5 minutes' },
-              { value: '10', label: 'Every 10 minutes' },
-              { value: '15', label: 'Every 15 minutes' },
-              { value: '30', label: 'Every 30 minutes' },
-              { value: '60', label: 'Every 60 minutes' },
-            ]}
-          />
-
-          <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-            <button className="btn" onClick={props.onRefresh} disabled={!props.canRefresh || props.refreshState.busy}>
-              {props.refreshState.busy ? 'Refreshing…' : 'Refresh now'}
-            </button>
-          </div>
+          <button className="btn" onClick={props.onRefresh} disabled={!props.canRefresh || props.refreshState.busy} style={{ width: '100%' }}>
+            {props.refreshState.busy ? 'Refreshing…' : 'Refresh now'}
+          </button>
 
           {props.refreshState.error ? <div className="error">{props.refreshState.error}</div> : null}
           {props.refreshState.lastAttemptAt ? (
@@ -205,15 +268,19 @@ export default function FiltersSidebar(props: {
             </div>
           ) : null}
 
-          <div className="titleRow">
-            <h2>Own Schedule ({props.likedCount})</h2>
           </div>
+
+          <div className="sidebarSection stack">
+            <div className="titleRow">
+              <h2>Own Schedule ({props.likedCount})</h2>
+            </div>
 
           {props.likedCount === 0 ? (
             <div className="muted" style={{ lineHeight: 1.5 }}>
-              1. Use the hearts to choose the sessions you are interested in.
-              <br />
-              2. Go to &quot;My Choices&quot; to see only the sessions you&apos;ve liked.
+              <ol>
+              <li>Use the hearts to choose the sessions you are interested in.</li>
+              <li>Go to &quot;My Choices&quot; to see only the sessions you&apos;ve liked.</li>
+              </ol>
             </div>
           ) : (
             <>
@@ -224,17 +291,13 @@ export default function FiltersSidebar(props: {
                 {props.showMyChoicesOnly ? 'My Choices (showing)' : 'My Choices'}
               </button>
 
-              <div className="titleRow">
-                <h2>Export</h2>
-              </div>
+              <ExportDropdown
+                onExportIcs={props.onExportIcs}
+                onExportJson={props.onExportJson}
+                onExportCsv={props.onExportCsv}
+              />
 
-              <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
-                <button className="btn" onClick={props.onExportIcs}>Download ICS</button>
-                <button className="btn" onClick={props.onExportJson}>Download JSON</button>
-                <button className="btn" onClick={props.onExportCsv}>Download CSV</button>
-              </div>
-
-              <div className="titleRow">
+              <div className="titleRow" style={{ marginTop: '14px' }}>
                 <h2>Reminders</h2>
               </div>
 
@@ -266,6 +329,7 @@ export default function FiltersSidebar(props: {
                 value={String(rs.offsetMinutes)}
                 onChange={(v) => setRS({ offsetMinutes: (v === '10' ? 10 : 0) })}
                 noActive={true}
+                hideLabel={true}
                 options={[
                   { value: '0', label: 'At session start' },
                   { value: '10', label: '10 minutes before' },
@@ -328,6 +392,7 @@ export default function FiltersSidebar(props: {
         <SelectRow
           label="View mode"
           value={vp.viewMode}
+          hideLabel={true}
           onChange={(v) => setVP({ viewMode: (v === 'table' ? 'table' : 'card') })}
           noActive={true}
           options={[
@@ -338,6 +403,7 @@ export default function FiltersSidebar(props: {
 
         <SelectRow
           label="Timezone"
+          hideLabel={true}
           value={vp.timezoneMode}
           onChange={(v) => setVP({ timezoneMode: v === 'device' ? 'device' : 'schedule' })}
           noActive={true}
@@ -347,39 +413,37 @@ export default function FiltersSidebar(props: {
           ]}
         />
 
-        <div className="field">
-          <label>Time range</label>
-          <div className="row" style={{ gap: 10 }}>
-            <input type="checkbox" checked={vp.showTimeRange} onChange={e => setVP({ showTimeRange: e.target.checked })} />
-          </div>
-        </div>
-
-        <div className="field">
-          <label>Duration</label>
-          <div className="row" style={{ gap: 10 }}>
-            <input type="checkbox" checked={vp.showDuration} onChange={e => setVP({ showDuration: e.target.checked })} />
-          </div>
-        </div>
       </CollapsibleSection>
 
       <CollapsibleSection title="Refresh" defaultOpen={false} storageKey="refresh">
-        <SelectRow
-          label="Auto reload"
-          value={vp.autoReloadMinutes === null ? 'never' : String(vp.autoReloadMinutes)}
-          onChange={(v) => {
-            if (v === 'never') setVP({ autoReloadMinutes: null })
-            else setVP({ autoReloadMinutes: Number(v) })
-          }}
-          noActive={true}
-          options={[
-            { value: 'never', label: 'Never' },
-            { value: '5', label: 'Every 5 minutes' },
-            { value: '10', label: 'Every 10 minutes' },
-            { value: '15', label: 'Every 15 minutes' },
-            { value: '30', label: 'Every 30 minutes' },
-            { value: '60', label: 'Every 60 minutes' },
-          ]}
-        />
+        {(() => {
+          const defaultValue = props.sessions ? getDefaultAutoReload(props.sessions) : 60
+          const currentValue = props.autoReloadMinutes !== undefined ? props.autoReloadMinutes : defaultValue
+          const isCustom = props.autoReloadMinutes !== undefined
+          
+          return (
+            <SelectRow
+              label="Auto reload"
+              hideLabel={true}
+              value={currentValue === null ? 'never' : String(currentValue)}
+              onChange={(v) => {
+                if (v === 'never') props.onChangeAutoReloadMinutes(null)
+                else props.onChangeAutoReloadMinutes(Number(v))
+              }}
+              noActive={!isCustom}
+              options={[
+                { value: 'never', label: 'Never' },
+                { value: '5', label: 'Every 5 minutes' },
+                { value: '10', label: 'Every 10 minutes' },
+                { value: '15', label: 'Every 15 minutes' },
+                { value: '30', label: 'Every 30 minutes' },
+                { value: '60', label: 'Every 60 minutes' },
+                { value: '720', label: 'Every 12 hours' },
+                { value: '1440', label: 'Every 24 hours' },
+              ]}
+            />
+          )
+        })()}
 
         <button className="btn" onClick={props.onRefresh} disabled={!props.canRefresh || props.refreshState.busy}>
           {props.refreshState.busy ? 'Refreshing…' : 'Refresh now'}
@@ -412,18 +476,18 @@ export default function FiltersSidebar(props: {
               {props.showMyChoicesOnly ? 'My Choices (showing)' : 'My Choices'}
             </button>
 
-            <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
-              <button className="btn" onClick={props.onExportIcs}>ICS</button>
-              <button className="btn" onClick={props.onExportJson}>JSON</button>
-              <button className="btn" onClick={props.onExportCsv}>CSV</button>
-            </div>
+            <ExportDropdown
+              onExportIcs={props.onExportIcs}
+              onExportJson={props.onExportJson}
+              onExportCsv={props.onExportCsv}
+            />
           </>
         )}
       </CollapsibleSection>
 
       {props.likedCount > 0 && (
         <CollapsibleSection title="Reminders" defaultOpen={false} storageKey="reminders">
-          <div className="muted" style={{ lineHeight: 1.5 }}>
+          <div className="muted span-2" style={{ lineHeight: 1.5 }}>
             Work only while app is open or in background.
           </div>
 
@@ -451,13 +515,14 @@ export default function FiltersSidebar(props: {
             value={String(rs.offsetMinutes)}
             onChange={(v) => setRS({ offsetMinutes: (v === '10' ? 10 : 0) })}
             noActive={true}
+            hideLabel={true}
             options={[
               { value: '0', label: 'At session start' },
               { value: '10', label: '10 minutes before' },
             ]}
           />
 
-          {props.reminderStatusText ? <div className="muted">{props.reminderStatusText}</div> : null}
+          {props.reminderStatusText ? <div className="muted span-2">{props.reminderStatusText}</div> : null}
         </CollapsibleSection>
       )}
     </div>

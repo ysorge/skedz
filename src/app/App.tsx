@@ -22,11 +22,12 @@ interface BeforeInstallPromptEvent extends Event {
 
 export default function App() {
   // Custom hooks for separated concerns
-  const { scheduleData, loading, loadSchedule, saveNewSchedule, updateSchedule, clearSchedule } = useScheduleManager()
-  const { viewParams, updateViewParams } = useViewParams()
-
+  const { scheduleData, loading, loadSchedule, saveNewSchedule, updateSchedule, updateAutoReloadMinutes, clearSchedule } = useScheduleManager()
+  
   const sessions = scheduleData?.sessions ?? null
   const scheduleKey = scheduleData?.scheduleKey
+  
+  const { viewParams, updateViewParams } = useViewParams(sessions)
 
   const { likedIds, likedSessions, showMyChoicesOnly, toggleLike, toggleMyChoicesFilter } = useLikedSessions(
     scheduleKey,
@@ -43,7 +44,7 @@ export default function App() {
 
   const { refreshState, canRefresh, refreshNow } = useAutoRefresh(
     scheduleData?.endpointUrl,
-    viewParams.autoReloadMinutes,
+    scheduleData?.autoReloadMinutes ?? null,
     async data => {
       await updateSchedule({
         conferenceTitle: data.conferenceTitle,
@@ -64,7 +65,10 @@ export default function App() {
 
   // PWA install prompt
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [showInstallPrompt, setShowInstallPrompt] = useState(false)
+  const [showInstallPrompt, setShowInstallPrompt] = useState(() => {
+    const dismissed = localStorage.getItem('installPromptDismissed')
+    return dismissed !== 'true'
+  })
 
   // Toggle past sessions visibility and persist to localStorage
   const togglePastSessions = () => {
@@ -104,7 +108,12 @@ export default function App() {
       e.preventDefault()
       const promptEvent = e as BeforeInstallPromptEvent
       setDeferredPrompt(promptEvent)
-      setShowInstallPrompt(true)
+      
+      // Only show if not previously dismissed
+      const dismissed = localStorage.getItem('installPromptDismissed')
+      if (dismissed !== 'true') {
+        setShowInstallPrompt(true)
+      }
     }
     window.addEventListener('beforeinstallprompt', handler)
     
@@ -138,10 +147,12 @@ export default function App() {
     const { outcome } = await deferredPrompt.userChoice
     setDeferredPrompt(null)
     setShowInstallPrompt(false)
+    localStorage.setItem('installPromptDismissed', 'true')
   }
 
   function dismissInstall() {
     setShowInstallPrompt(false)
+    localStorage.setItem('installPromptDismissed', 'true')
   }
 
   // Compute facets for filters
@@ -251,7 +262,7 @@ export default function App() {
 
   return (
     <>
-      <div className="navBar" onClick={changeSource}>
+      <div className="navBar btnBack" onClick={changeSource}>
         <svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
@@ -304,6 +315,9 @@ export default function App() {
           canRefresh={canRefresh}
           onRefresh={refreshNow}
           refreshState={refreshState}
+          autoReloadMinutes={scheduleData?.autoReloadMinutes}
+          onChangeAutoReloadMinutes={updateAutoReloadMinutes}
+          sessions={sessions}
           likedCount={likedIds.size}
           showMyChoicesOnly={showMyChoicesOnly}
           onToggleMyChoices={toggleMyChoicesFilter}
