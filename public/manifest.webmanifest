@@ -7,7 +7,7 @@
   "display": "standalone",
   "background_color": "#10171e",
   "theme_color": "#10171e",
-  "description": "Offline-first congress schedule viewer PWA",
+  "description": "Offline-first schedule app for congress schedules",
   "icons": [
     {
       "src": "/pwa-icons/icon-192.png",
@@ -24,6 +24,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/home.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Home screen showing main navigation and schedule library"
+    },
+    {
+      "src": "screenshots/schedule.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Schedule view displaying session list and filter options"
     }
   ]
 }

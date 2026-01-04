@@ -1,11 +1,32 @@
 <!doctype html>
 <html lang="en">
   <head>
+    
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#10171e" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
     <title>Skedz</title>
+
+    <!-- PWA -->
     <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-icons/icon-192.png" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Skedz" />
+    <meta property="og:site_name" content="Skedz" />
+    <meta property="og:description" content="Offline-first schedule app for congress schedules." />
+    <meta property="og:image" content="/pwa-icons/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Skedz" />
+    <meta name="twitter:description" content="Offline-first schedule app for congress schedules." />
+    <meta name="twitter:image" content="/pwa-icons/og-image.png" />
+
   </head>
   <body>
     <div id="root"></div>
