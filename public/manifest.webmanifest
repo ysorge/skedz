@@ -1,30 +1,29 @@
 {
+  "id": "/",
   "name": "Skedz",
   "short_name": "Skedz",
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#22223b",
-  "description": "Offline-first Schedule Viewer",
+  "background_color": "#10171e",
+  "theme_color": "#10171e",
+  "description": "Offline-first congress schedule viewer PWA",
   "icons": [
     {
-      "src": "pwa-icons/icon-192.png",
+      "src": "/pwa-icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "pwa-icons/icon-512.png",
+      "src": "/pwa-icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
-    }
-  ],
-  "display_override": ["standalone", "fullscreen", "minimal-ui", "browser"],
-  "file_handlers": [
+    },
     {
-      "action": "/",
-      "accept": {
-        "application/json": [".json"]
-      }
+      "src": "/pwa-icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
