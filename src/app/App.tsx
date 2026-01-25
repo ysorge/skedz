@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, lazy, Suspense } from 'react'
+import React, { useEffect, useMemo, useState, lazy, Suspense, useRef } from 'react'
 import FiltersSidebar from '../components/FiltersSidebar'
 import SessionList from '../components/SessionList'
 import { DEFAULT_FILTERS, applyFilters, uniqSorted, type Filters } from '../utils/filters'
@@ -10,6 +10,7 @@ import { useViewParams } from '../hooks/useViewParams'
 import { useAutoRefresh } from '../hooks/useAutoRefresh'
 import { isCongressRunning, isCongressOver } from '../utils/congressState'
 import type { Session } from '../data/normalizeSchedule'
+import { updateScheduleTitle } from '../data/storage'
 
 // Lazy load components that aren't needed on initial render
 const EndpointScreen = lazy(() => import('../components/EndpointScreen'))
@@ -62,6 +63,11 @@ export default function App() {
     const stored = localStorage.getItem('showPastSessions')
     return stored === 'true'
   })
+  
+  // Rename dialog state
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const renameDialogRef = useRef<HTMLDialogElement | null>(null)
 
   // PWA install prompt
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
@@ -100,6 +106,24 @@ export default function App() {
   useEffect(() => {
     loadSchedule()
   }, [loadSchedule])
+  
+  // Manage rename dialog
+  useEffect(() => {
+    const dlg = renameDialogRef.current
+    if (!dlg) return
+    if (renameDialogOpen) {
+      if (!dlg.open) dlg.showModal()
+    } else {
+      if (dlg.open) dlg.close()
+    }
+
+    const onCancel = (e: Event) => {
+      e.preventDefault()
+      closeRenameDialog()
+    }
+    dlg.addEventListener('cancel', onCancel)
+    return () => dlg.removeEventListener('cancel', onCancel)
+  }, [renameDialogOpen])
 
   // Capture PWA install prompt
   useEffect(() => {
@@ -153,6 +177,36 @@ export default function App() {
   function dismissInstall() {
     setShowInstallPrompt(false)
     localStorage.setItem('installPromptDismissed', 'true')
+  }
+  
+  // Rename handlers
+  function handleTitleClick() {
+    if (!scheduleKey || !scheduleData) return
+    setRenameValue(scheduleData.conferenceTitle || 'Untitled Schedule')
+    setRenameDialogOpen(true)
+  }
+
+  function closeRenameDialog() {
+    setRenameDialogOpen(false)
+    setRenameValue('')
+  }
+
+  async function handleRenameSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    
+    if (!scheduleKey || !renameValue.trim()) {
+      return
+    }
+
+    try {
+      await updateScheduleTitle(scheduleKey, renameValue.trim())
+      // Reload schedule to update the displayed title
+      await loadSchedule()
+      closeRenameDialog()
+    } catch (error) {
+      console.error('Failed to rename schedule:', error)
+      alert('Failed to rename schedule. Please try again.')
+    }
   }
 
   // Compute facets for filters
@@ -283,7 +337,13 @@ export default function App() {
         )}
 
         {scheduleData?.conferenceTitle && (
-          <h1 className="conferenceTitle">{scheduleData.conferenceTitle}</h1>
+          <h1 
+            className="conferenceTitle" 
+            onClick={handleTitleClick}
+            style={{ cursor: 'pointer' }}
+          >
+            {scheduleData.conferenceTitle}
+          </h1>
         )}
       
         <div className="appShell">
@@ -362,6 +422,37 @@ export default function App() {
         )}
       </div>
     </div>
+    
+    <dialog ref={renameDialogRef}>
+      <div className="modalHeader">
+        <h3>Rename Schedule</h3>
+        <button className="btn btnClose" onClick={closeRenameDialog}>×</button>
+      </div>
+      <form onSubmit={handleRenameSubmit}>
+        <div className="modalBody">
+          <div className="field">
+            <label>Schedule Title</label>
+            <input
+              className="inputModal"
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              placeholder="Enter schedule title"
+              autoFocus
+              required
+            />
+          </div>
+        </div>
+        <div className="modalFooter" style={{ padding: '1rem', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button type="button" className="btn" onClick={closeRenameDialog}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btnPrimary" disabled={!renameValue.trim()}>
+            Rename
+          </button>
+        </div>
+      </form>
+    </dialog>
     </>
   )
 }

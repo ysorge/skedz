@@ -8,6 +8,15 @@ Skedz is inspired by [Calendify](https://calendify.com/) schedules, but runs com
 
 ![Skedz screenshot](public/screenshots/home.png)
 
+## Supported Formats
+
+| Format | Extensions | Description |
+|--------|------------|-------------|
+| **JSON (schedule.json)** | `.json` | JSON format used by Frab, Pretalx, and others |
+| **XML (schedule.xml)** | `.xml` | XML format used by Frab, Pretalx, Pentabarf, and others |
+| **XCal** | `.xcal`, `.xcs` | XML-based iCalendar format |
+| **iCal** | `.ical`, `.ics` | Standard iCalendar format |
+
 
 ## Getting started
 
