@@ -134,7 +134,8 @@ class FormatRegistry {
       }
       
       return null
-    } catch {
+    } catch (err) {
+      console.error('Failed to detect schedule format from URL:', url, err)
       return null
     }
   }
