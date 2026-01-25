@@ -13,7 +13,8 @@ export class XCalParser implements ScheduleParser {
   }
 
   canParse(content: string): boolean {
-    return content.trim().startsWith('<?xml') && (content.includes('<icalendar') || content.includes('<vcalendar'))
+    const normalized = content.toLowerCase()
+    return content.trim().startsWith('<?xml') && (normalized.includes('<icalendar') || normalized.includes('<vcalendar'))
   }
 
   parse(content: string): CanonicalSchedule {
