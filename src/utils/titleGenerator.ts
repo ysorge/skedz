@@ -305,5 +305,5 @@ export function getBestTitle(providedTitle: string | undefined, fallbackTitle: s
   if (isGenericTitle(providedTitle)) {
     return fallbackTitle
   }
-  return providedTitle!
+  return providedTitle || fallbackTitle
 }
