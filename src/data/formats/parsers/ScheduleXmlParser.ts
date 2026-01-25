@@ -1,7 +1,7 @@
 import type { ScheduleParser, CanonicalSchedule, CanonicalSession, FormatMetadata } from '../types'
 
 /**
- * JSON (frab-compatible / schedule.xml) format
+ * XML (frab-compatible / schedule.xml) format
  * used by Frab, Pretalx, Pentabarf, and others
  */
 export class ScheduleXmlParser implements ScheduleParser {
