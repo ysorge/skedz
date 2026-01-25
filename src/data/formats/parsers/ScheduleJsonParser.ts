@@ -94,12 +94,24 @@ export class ScheduleJsonParser implements ScheduleParser {
 
     sessions.sort((a, b) => a.start.getTime() - b.start.getTime())
 
+    let conferenceStart: Date | undefined
+    if (typeof conf?.start === 'string') {
+      const d = new Date(conf.start)
+      conferenceStart = Number.isNaN(d.getTime()) ? undefined : d
+    }
+
+    let conferenceEnd: Date | undefined
+    if (typeof conf?.end === 'string') {
+      const d = new Date(conf.end)
+      conferenceEnd = Number.isNaN(d.getTime()) ? undefined : d
+    }
+
     return {
       sessions,
       conferenceTitle: conf?.title,
       conferenceTimeZoneName: typeof conf?.time_zone_name === 'string' ? conf.time_zone_name : undefined,
-      conferenceStart: typeof conf?.start === 'string' ? new Date(conf.start) : undefined,
-      conferenceEnd: typeof conf?.end === 'string' ? new Date(conf.end) : undefined,
+      conferenceStart,
+      conferenceEnd,
     }
   }
 
