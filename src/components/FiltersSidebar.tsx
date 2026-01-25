@@ -160,40 +160,50 @@ export default function FiltersSidebar(props: {
             <input type="text" value={f.q} onChange={e => set({ q: e.target.value })} placeholder="Search term" data-active={!!f.q} />
           </div>
 
-          <div className="field">
-            <select value={f.day} onChange={e => set({ day: e.target.value as any })} data-active={f.day !== 'ALL'}>
-              <option value="ALL">All days</option>
-              {props.facets.days.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </div>
+          {props.facets.days.length > 0 && (
+            <div className="field">
+              <select value={f.day} onChange={e => set({ day: e.target.value as any })} data-active={f.day !== 'ALL'}>
+                <option value="ALL">All days</option>
+                {props.facets.days.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          )}
 
-          <div className="field">
-            <select value={f.track} onChange={e => set({ track: e.target.value as any })} data-active={f.track !== 'ALL'}>
-              <option value="ALL">All tracks</option>
-              {props.facets.tracks.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
+          {props.facets.tracks.length > 0 && (
+            <div className="field">
+              <select value={f.track} onChange={e => set({ track: e.target.value as any })} data-active={f.track !== 'ALL'}>
+                <option value="ALL">All tracks</option>
+                {props.facets.tracks.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          )}
 
-          <div className="field">
-            <select value={f.room} onChange={e => set({ room: e.target.value as any })} data-active={f.room !== 'ALL'}>
-              <option value="ALL">All rooms</option>
-              {props.facets.rooms.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </div>
+          {props.facets.rooms.length > 0 && (
+            <div className="field">
+              <select value={f.room} onChange={e => set({ room: e.target.value as any })} data-active={f.room !== 'ALL'}>
+                <option value="ALL">All rooms</option>
+                {props.facets.rooms.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+          )}
 
-          <div className="field">
-            <select value={f.type} onChange={e => set({ type: e.target.value as any })} data-active={f.type !== 'ALL'}>
-              <option value="ALL">All types</option>
-              {props.facets.types.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
+          {props.facets.types.length > 0 && (
+            <div className="field">
+              <select value={f.type} onChange={e => set({ type: e.target.value as any })} data-active={f.type !== 'ALL'}>
+                <option value="ALL">All types</option>
+                {props.facets.types.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          )}
 
-          <div className="field">
-            <select value={f.language} onChange={e => set({ language: e.target.value as any })} data-active={f.language !== 'ALL'}>
-              <option value="ALL">All languages</option>
-              {props.facets.languages.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </div>
+          {props.facets.languages.length > 0 && (
+            <div className="field">
+              <select value={f.language} onChange={e => set({ language: e.target.value as any })} data-active={f.language !== 'ALL'}>
+                <option value="ALL">All languages</option>
+                {props.facets.languages.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+          )}
         </div>
         
 
@@ -352,40 +362,50 @@ export default function FiltersSidebar(props: {
           <input type="text" value={f.q} onChange={e => set({ q: e.target.value })} placeholder="Search term" data-active={!!f.q} />
         </div>
 
-        <div className="field">
-          <select value={f.day} onChange={e => set({ day: e.target.value as any })} data-active={f.day !== 'ALL'}>
-            <option value="ALL">All days</option>
-            {props.facets.days.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
+        {props.facets.days.length > 0 && (
+          <div className="field">
+            <select value={f.day} onChange={e => set({ day: e.target.value as any })} data-active={f.day !== 'ALL'}>
+              <option value="ALL">All days</option>
+              {props.facets.days.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+        )}
 
-        <div className="field">
-          <select value={f.track} onChange={e => set({ track: e.target.value as any })} data-active={f.track !== 'ALL'}>
-            <option value="ALL">All tracks</option>
-            {props.facets.tracks.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
+        {props.facets.tracks.length > 0 && (
+          <div className="field">
+            <select value={f.track} onChange={e => set({ track: e.target.value as any })} data-active={f.track !== 'ALL'}>
+              <option value="ALL">All tracks</option>
+              {props.facets.tracks.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+        )}
 
-        <div className="field">
-          <select value={f.room} onChange={e => set({ room: e.target.value as any })} data-active={f.room !== 'ALL'}>
-            <option value="ALL">All rooms</option>
-            {props.facets.rooms.map(r => <option key={r} value={r}>{r}</option>)}
-          </select>
-        </div>
+        {props.facets.rooms.length > 0 && (
+          <div className="field">
+            <select value={f.room} onChange={e => set({ room: e.target.value as any })} data-active={f.room !== 'ALL'}>
+              <option value="ALL">All rooms</option>
+              {props.facets.rooms.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+        )}
 
-        <div className="field">
-          <select value={f.type} onChange={e => set({ type: e.target.value as any })} data-active={f.type !== 'ALL'}>
-            <option value="ALL">All types</option>
-            {props.facets.types.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
+        {props.facets.types.length > 0 && (
+          <div className="field">
+            <select value={f.type} onChange={e => set({ type: e.target.value as any })} data-active={f.type !== 'ALL'}>
+              <option value="ALL">All types</option>
+              {props.facets.types.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+        )}
 
-        <div className="field">
-          <select value={f.language} onChange={e => set({ language: e.target.value as any })} data-active={f.language !== 'ALL'}>
-            <option value="ALL">All languages</option>
-            {props.facets.languages.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
-        </div>
+        {props.facets.languages.length > 0 && (
+          <div className="field">
+            <select value={f.language} onChange={e => set({ language: e.target.value as any })} data-active={f.language !== 'ALL'}>
+              <option value="ALL">All languages</option>
+              {props.facets.languages.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+        )}
       </CollapsibleSection>
 
       <CollapsibleSection title="View" defaultOpen={false} storageKey="view">

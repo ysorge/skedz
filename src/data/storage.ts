@@ -125,3 +125,33 @@ export async function loadActiveSchedule(): Promise<StoredSchedule | undefined> 
   if (!idx.activeKey) return undefined
   return await loadSchedule(idx.activeKey)
 }
+
+/**
+ * Update the conference title for a schedule
+ */
+export async function updateScheduleTitle(key: ScheduleKey, newTitle: string): Promise<void> {
+  try {
+    const schedule = await loadSchedule(key)
+    if (!schedule) {
+      throw new Error('Schedule not found')
+    }
+    
+    // Update schedule data
+    schedule.conferenceTitle = newTitle
+    await set(scheduleStorageKey(key), schedule)
+    
+    // Update library metadata
+    await addOrUpdateScheduleInLibrary({
+      key: schedule.key,
+      endpointUrl: schedule.endpointUrl,
+      sourceLabel: schedule.sourceLabel,
+      conferenceTitle: newTitle,
+      conferenceTimeZoneName: schedule.conferenceTimeZoneName,
+      lastFetchedAt: schedule.fetchedAt,
+      sessionCount: schedule.sessions.length,
+    })
+  } catch (error) {
+    console.error('Failed to update schedule title:', error)
+    throw error
+  }
+}

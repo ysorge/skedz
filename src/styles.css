@@ -344,6 +344,7 @@ input[type="text"][data-active="true"]{
   cursor:pointer;
   color: var(--button-outline-text);
   transition: all 0.2s ease;
+  font-size:14px;
 }
 .btn:hover{
   border-color: var(--button-hover-border);
