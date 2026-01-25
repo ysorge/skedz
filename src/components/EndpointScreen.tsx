@@ -98,7 +98,7 @@ export default function EndpointScreen(props: {
   }, [showFileModal])
 
   const hint = useMemo(() => {
-    if (!url.trim()) return 'Please enter a schedule.json URL.'
+    if (!url.trim()) return 'Please enter a schedule URL.'
     try { new URL(url); return null } catch { return 'Please enter a valid URL.' }
   }, [url])
 
