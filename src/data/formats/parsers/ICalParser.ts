@@ -166,9 +166,7 @@ export class ICalParser implements ScheduleParser {
     
     const dateStr = line.substring(colonIndex + 1)
     
-    // Check for TZID parameter
-    const tzidMatch = line.match(/TZID=([^:;]+)/)
-    const tzid = tzidMatch?.[1]
+    // Check for TZID parameter (currently ignored; dates are parsed as UTC or local based on "Z" suffix)
     
     // Parse different iCal date formats
     // Format: 20250625T140000Z (UTC)
