@@ -40,8 +40,12 @@ export class ScheduleXmlParser implements ScheduleParser {
     const conferenceTimeZoneName = conferenceEl?.querySelector('time_zone_name')?.textContent || undefined
     const conferenceStartStr = conferenceEl?.querySelector('start')?.textContent || undefined
     const conferenceEndStr = conferenceEl?.querySelector('end')?.textContent || undefined
-    const conferenceStart = conferenceStartStr ? new Date(conferenceStartStr) : undefined
-    const conferenceEnd = conferenceEndStr ? new Date(conferenceEndStr) : undefined
+    const rawConferenceStart = conferenceStartStr ? new Date(conferenceStartStr) : undefined
+    const conferenceStart =
+      rawConferenceStart && !isNaN(rawConferenceStart.getTime()) ? rawConferenceStart : undefined
+    const rawConferenceEnd = conferenceEndStr ? new Date(conferenceEndStr) : undefined
+    const conferenceEnd =
+      rawConferenceEnd && !isNaN(rawConferenceEnd.getTime()) ? rawConferenceEnd : undefined
 
     // Parse days
     const days = scheduleEl.querySelectorAll('day')
