@@ -14,7 +14,8 @@ export class ScheduleXmlParser implements ScheduleParser {
   }
 
   canParse(content: string): boolean {
-    return content.trim().startsWith('<?xml') && content.includes('<schedule')
+    const trimmed = content.trim()
+    return trimmed.startsWith('<?xml') && /<\s*schedule\b/i.test(trimmed)
   }
 
   parse(content: string): CanonicalSchedule {
