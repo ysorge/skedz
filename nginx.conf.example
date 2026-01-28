@@ -95,13 +95,13 @@ server {
     # SPA routing - serve index.html for all routes
     location / {
         try_files $uri $uri/ /index.html;
-        
-        # Security: Prevent access to hidden files
-        location ~ /\. {
-            deny all;
-            access_log off;
-            log_not_found off;
-        }
+    }
+    
+    # Security: Prevent access to hidden files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
     }
     
     # =====================================================
