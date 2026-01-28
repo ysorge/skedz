@@ -104,7 +104,10 @@ export default function App() {
 
   // Check for URL parameter on mount
   const [prefillUrl, setPrefillUrl] = useState<string | null>(null)
+  const [hasCheckedUrlParam, setHasCheckedUrlParam] = useState(false)
+  
   useEffect(() => {
+    // Only run once on mount
     const params = new URLSearchParams(window.location.search)
     const urlParam = params.get('url')
     if (urlParam) {
@@ -112,16 +115,21 @@ export default function App() {
       // Remove URL parameter from address bar
       window.history.replaceState({}, document.title, window.location.pathname)
       // Clear current schedule to show EndpointScreen with prefilled URL
-      clearSchedule()
+      ;(async () => {
+        await clearSchedule()
+        setHasCheckedUrlParam(true)
+      })()
+    } else {
+      setHasCheckedUrlParam(true)
     }
-  }, [clearSchedule])
+  }, []) // Empty array - only run once on mount
 
   // Load schedule on mount (only if no URL parameter)
   useEffect(() => {
-    if (prefillUrl === null) {
+    if (hasCheckedUrlParam && prefillUrl === null) {
       loadSchedule()
     }
-  }, [loadSchedule, prefillUrl])
+  }, [loadSchedule, prefillUrl, hasCheckedUrlParam])
   
   // Manage rename dialog
   useEffect(() => {
@@ -266,6 +274,8 @@ export default function App() {
     })
     setFilters(DEFAULT_FILTERS)
     setSelected(null)
+    // Clear prefillUrl so it doesn't trigger modal again when returning to home
+    setPrefillUrl(null)
   }
 
   // Change source handler
