@@ -102,10 +102,34 @@ export default function App() {
   const congressRunning = useMemo(() => sessions ? isCongressRunning(sessions) : false, [sessions])
   const congressOver = useMemo(() => sessions ? isCongressOver(sessions) : false, [sessions])
 
-  // Load schedule on mount
+  // Check for URL parameter on mount
+  const [prefillUrl, setPrefillUrl] = useState<string | null>(null)
+  const [hasCheckedUrlParam, setHasCheckedUrlParam] = useState(false)
+  
   useEffect(() => {
-    loadSchedule()
-  }, [loadSchedule])
+    // Only run once on mount
+    const params = new URLSearchParams(window.location.search)
+    const urlParam = params.get('url')
+    if (urlParam) {
+      setPrefillUrl(urlParam)
+      // Remove URL parameter from address bar
+      window.history.replaceState({}, document.title, window.location.pathname)
+      // Clear current schedule to show EndpointScreen with prefilled URL
+      ;(async () => {
+        await clearSchedule()
+        setHasCheckedUrlParam(true)
+      })()
+    } else {
+      setHasCheckedUrlParam(true)
+    }
+  }, []) // Empty array - only run once on mount
+
+  // Load schedule on mount (only if no URL parameter)
+  useEffect(() => {
+    if (hasCheckedUrlParam && prefillUrl === null) {
+      loadSchedule()
+    }
+  }, [loadSchedule, prefillUrl, hasCheckedUrlParam])
   
   // Manage rename dialog
   useEffect(() => {
@@ -250,6 +274,8 @@ export default function App() {
     })
     setFilters(DEFAULT_FILTERS)
     setSelected(null)
+    // Clear prefillUrl so it doesn't trigger modal again when returning to home
+    setPrefillUrl(null)
   }
 
   // Change source handler
@@ -303,7 +329,8 @@ export default function App() {
     return (
       <Suspense fallback={<div className="container"><div className="card"><div className="cardBody">Loading…</div></div></div>}>
         <EndpointScreen 
-          initialUrl={scheduleData?.endpointUrl} 
+          initialUrl={scheduleData?.endpointUrl}
+          prefillUrl={prefillUrl}
           onLoaded={onLoaded}
           showInstallButton={!!deferredPrompt}
           onInstall={handleInstall}
