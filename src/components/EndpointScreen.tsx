@@ -20,6 +20,7 @@ async function readFileAsText(file: File): Promise<string> {
 
 export default function EndpointScreen(props: {
   initialUrl?: string
+  prefillUrl?: string | null
   showInstallButton?: boolean
   onInstall?: () => void
   onLoaded: (data: {
@@ -41,6 +42,16 @@ export default function EndpointScreen(props: {
   const [fileFormat, setFileFormat] = useState<ScheduleFormat | ''>('')
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const fileDialogRef = useRef<HTMLDialogElement | null>(null)
+  const [prefillHandled, setPrefillHandled] = useState(false)
+
+  // Handle prefillUrl from URL parameter
+  useEffect(() => {
+    if (props.prefillUrl && !prefillHandled) {
+      setUrl(props.prefillUrl)
+      setShowUrlModal(true)
+      setPrefillHandled(true)
+    }
+  }, [props.prefillUrl, prefillHandled])
 
   const allFormats = useMemo(() => formatRegistry.getAllFormats(), [])
 

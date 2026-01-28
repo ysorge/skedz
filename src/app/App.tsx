@@ -102,10 +102,26 @@ export default function App() {
   const congressRunning = useMemo(() => sessions ? isCongressRunning(sessions) : false, [sessions])
   const congressOver = useMemo(() => sessions ? isCongressOver(sessions) : false, [sessions])
 
-  // Load schedule on mount
+  // Check for URL parameter on mount
+  const [prefillUrl, setPrefillUrl] = useState<string | null>(null)
   useEffect(() => {
-    loadSchedule()
-  }, [loadSchedule])
+    const params = new URLSearchParams(window.location.search)
+    const urlParam = params.get('url')
+    if (urlParam) {
+      setPrefillUrl(urlParam)
+      // Remove URL parameter from address bar
+      window.history.replaceState({}, document.title, window.location.pathname)
+      // Clear current schedule to show EndpointScreen with prefilled URL
+      clearSchedule()
+    }
+  }, [clearSchedule])
+
+  // Load schedule on mount (only if no URL parameter)
+  useEffect(() => {
+    if (prefillUrl === null) {
+      loadSchedule()
+    }
+  }, [loadSchedule, prefillUrl])
   
   // Manage rename dialog
   useEffect(() => {
@@ -303,7 +319,8 @@ export default function App() {
     return (
       <Suspense fallback={<div className="container"><div className="card"><div className="cardBody">Loading…</div></div></div>}>
         <EndpointScreen 
-          initialUrl={scheduleData?.endpointUrl} 
+          initialUrl={scheduleData?.endpointUrl}
+          prefillUrl={prefillUrl}
           onLoaded={onLoaded}
           showInstallButton={!!deferredPrompt}
           onInstall={handleInstall}
