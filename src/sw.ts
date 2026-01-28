@@ -10,6 +10,27 @@ declare const self: ServiceWorkerGlobalScope
 precacheAndRoute(self.__WB_MANIFEST)
 cleanupOutdatedCaches()
 
+// Immediate activation of new service worker
+self.addEventListener('install', (event) => {
+  console.log('[SW] Installing new service worker')
+  self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating new service worker')
+  event.waitUntil(
+    self.clients.claim().then(() => {
+      console.log('[SW] Claiming all clients')
+      return self.clients.matchAll({ type: 'window' }).then(clients => {
+        clients.forEach(client => {
+          console.log('[SW] Reloading client:', client.url)
+          client.postMessage({ type: 'SW_UPDATED' })
+        })
+      })
+    })
+  )
+})
+
 // Runtime caching for schedule JSON
 registerRoute(
   /\/schedule\.json(\?.*)?$/i,

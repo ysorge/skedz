@@ -1,0 +1,310 @@
+# Skedz PWA - Apache Configuration Example
+#
+# This .htaccess file includes security headers, CSP, and optimal caching
+# for production deployment on Apache servers.
+#
+# Requirements:
+# - mod_rewrite (for SPA routing)
+# - mod_headers (for security headers)
+# - mod_expires (for caching)
+# - mod_deflate (for compression)
+#
+# Enable modules on Debian/Ubuntu:
+# sudo a2enmod rewrite headers expires deflate
+# sudo systemctl restart apache2
+#
+# Installation:
+# 1. Copy this file to your document root as .htaccess
+# 2. Adjust connect-src domains in CSP if needed
+# 3. Ensure AllowOverride All in Apache config
+
+# =====================================================
+# Security Headers
+# =====================================================
+
+<IfModule mod_headers.c>
+    # Content Security Policy
+    # Adjust connect-src domains based on your schedule sources
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://*.ccc.de https://*.congress.org https://*.skedz.org; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;"
+    
+    # Prevent clickjacking
+    Header always set X-Frame-Options "DENY"
+    
+    # Prevent MIME type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # Referrer policy (don't leak URLs to external sites)
+    Header always set Referrer-Policy "no-referrer"
+    
+    # Permissions policy (disable unused browser features)
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+    
+    # Cross-Origin policies
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    Header always set Cross-Origin-Embedder-Policy "require-corp"
+    Header always set Cross-Origin-Resource-Policy "same-origin"
+    
+    # HSTS (HTTP Strict Transport Security)
+    # WARNING: Only enable after testing HTTPS works correctly!
+    # Uncomment the line below when ready:
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    
+    # Remove server signature
+    Header always unset X-Powered-By
+    Header always unset Server
+    
+    # Expect-CT (deprecated but harmless)
+    Header always set Expect-CT "max-age=0"
+</IfModule>
+
+# Hide Apache version
+ServerSignature Off
+
+# =====================================================
+# SPA Routing (React Router)
+# =====================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    
+    # Redirect HTTP to HTTPS (if HTTPS is available)
+    # Uncomment after SSL is configured:
+    # RewriteCond %{HTTPS} !=on
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+    
+    # Don't rewrite files or directories that exist
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    
+    # Rewrite everything else to index.html
+    RewriteRule ^ index.html [L]
+</IfModule>
+
+# =====================================================
+# Static Assets Caching
+# =====================================================
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    
+    # Default: 1 hour
+    ExpiresDefault "access plus 1 hour"
+    
+    # HTML (no cache for SPA)
+    ExpiresByType text/html "access plus 0 seconds"
+    
+    # Static assets (1 week cache - SW handles updates)
+    ExpiresByType application/javascript "access plus 1 week"
+    ExpiresByType text/javascript "access plus 1 week"
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType font/woff "access plus 1 week"
+    ExpiresByType font/woff2 "access plus 1 week"
+    
+    # Images
+    ExpiresByType image/png "access plus 1 week"
+    ExpiresByType image/jpeg "access plus 1 week"
+    ExpiresByType image/jpg "access plus 1 week"
+    ExpiresByType image/gif "access plus 1 week"
+    ExpiresByType image/svg+xml "access plus 1 week"
+    ExpiresByType image/webp "access plus 1 week"
+    ExpiresByType image/x-icon "access plus 1 week"
+    
+    # Manifest
+    ExpiresByType application/manifest+json "access plus 1 day"
+</IfModule>
+
+<IfModule mod_headers.c>
+    # Static assets cache (1 week = 604800 seconds)
+    # Service worker handles version updates
+    <FilesMatch "\.(js|css|woff|woff2)$">
+        Header set Cache-Control "public, max-age=604800"
+    </FilesMatch>
+    
+    # Images
+    <FilesMatch "\.(png|jpg|jpeg|gif|ico|svg|webp)$">
+        Header set Cache-Control "public, max-age=604800"
+    </FilesMatch>
+    
+    # HTML (no cache)
+    <FilesMatch "\.html$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+</IfModule>
+
+# =====================================================
+# PWA Special Files
+# =====================================================
+
+# Service Worker - NEVER cache
+<FilesMatch "^sw\.js$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, no-store, must-revalidate, proxy-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "-1"
+        Header set Content-Type "application/javascript; charset=utf-8"
+    </IfModule>
+    
+    <IfModule mod_expires.c>
+        ExpiresActive Off
+    </IfModule>
+</FilesMatch>
+
+# Manifest
+<FilesMatch "^manifest\.webmanifest$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, must-revalidate, max-age=86400"
+        Header set Content-Type "application/manifest+json; charset=utf-8"
+    </IfModule>
+</FilesMatch>
+
+# =====================================================
+# Compression
+# =====================================================
+
+<IfModule mod_deflate.c>
+    # Compress HTML, CSS, JavaScript, Text, XML, JSON
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE image/svg+xml
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE application/manifest+json
+    
+    # Don't compress images (already compressed)
+    SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|ico|webp)$ no-gzip
+    
+    # Don't compress if already using brotli
+    SetEnvIfNoCase Request_URI \.br$ no-gzip
+</IfModule>
+
+# =====================================================
+# Security - Deny Access to Sensitive Files
+# =====================================================
+
+# Deny access to hidden files (except .well-known for Let's Encrypt)
+<FilesMatch "^\.(?!well-known)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Deny access to backup files
+<FilesMatch "\.(bak|config|sql|fla|psd|ini|log|sh|inc|swp|dist)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Deny access to version control directories
+RedirectMatch 404 /\.git
+
+# =====================================================
+# MIME Types
+# =====================================================
+
+<IfModule mod_mime.c>
+    # JavaScript
+    AddType application/javascript js mjs
+    
+    # JSON
+    AddType application/json json
+    AddType application/manifest+json webmanifest
+    
+    # Fonts
+    AddType font/woff woff
+    AddType font/woff2 woff2
+    
+    # Images
+    AddType image/svg+xml svg svgz
+    AddType image/webp webp
+    
+    # Character encoding
+    AddDefaultCharset utf-8
+    AddCharset utf-8 .html .css .js .json .xml .webmanifest
+</IfModule>
+
+# =====================================================
+# Performance Optimizations
+# =====================================================
+
+# Disable ETags (we use Cache-Control instead)
+<IfModule mod_headers.c>
+    Header unset ETag
+</IfModule>
+FileETag None
+
+# Disable access logs for static assets (optional, saves I/O)
+<FilesMatch "\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$">
+    SetEnv nolog
+</FilesMatch>
+CustomLog /var/log/apache2/skedz-pwa_access.log combined env=!nolog
+
+# =====================================================
+# Error Pages (Optional)
+# =====================================================
+
+# Custom error pages (create these files if needed)
+# ErrorDocument 404 /404.html
+# ErrorDocument 403 /403.html
+# ErrorDocument 500 /500.html
+
+# =====================================================
+# Rate Limiting (Optional, requires mod_ratelimit)
+# =====================================================
+
+# Uncomment to enable (Apache 2.4+):
+# <IfModule mod_ratelimit.c>
+#     # Limit to 1MB/s per connection
+#     SetOutputFilter RATE_LIMIT
+#     SetEnv rate-limit 1024
+# </IfModule>
+
+# =====================================================
+# Additional Security (Optional)
+# =====================================================
+
+# Disable directory browsing
+Options -Indexes
+
+# Disable server-side includes
+Options -Includes
+
+# Disable CGI execution
+Options -ExecCGI
+
+# Follow symbolic links (required for React Router)
+Options +FollowSymLinks
+
+# Disable MultiViews (can cause issues with SPA routing)
+Options -MultiViews
+
+# =====================================================
+# Content Security Policy Report-Only Mode
+# =====================================================
+
+# Uncomment to test CSP without blocking (useful for debugging):
+# <IfModule mod_headers.c>
+#     Header always set Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://*.ccc.de; frame-ancestors 'none'; base-uri 'self'; report-uri /csp-report"
+# </IfModule>
+
+# Note: Check browser console for CSP violations, then switch to enforcing mode above
+
+# =====================================================
+# End of Configuration
+# =====================================================
