@@ -95,7 +95,30 @@ Note: Opening the built files directly via `file://` will not work correctly bec
 
 The app shell is cached by the service worker. Schedules are stored in an IndexedDB after loading from URL or importing a file. On next launch (even offline), the cached schedule loads instantly.
 
-Some schedule endpoints/servers block browsers via CORS. If loading of schedules from URL fails with a network/CORS error, the JSON file must be downloaded outside the app and then imported manually via "Import file".
+### Direct schedule import via URL
+
+You can share a schedule by adding a `?url=` parameter to the app URL. This automatically loads the schedule from the specified endpoint. Example:
+
+```
+https://app.skedz.org/?url=https://api.events.ccc.de/congress/2025/schedule.json
+```
+
+This is useful for sharing schedules with others or bookmarking schedules.
+
+### Working around CORS restrictions
+
+Some schedule endpoints don't allow browser access due to CORS (Cross-Origin Resource Sharing) restrictions. If loading fails with a CORS error, you have two options:
+
+1. **Download and import manually**: Download the schedule file and import it via "Import file".
+2. **Use a CORS proxy**: Deploy the companion [Skedz CORS Proxy](https://github.com/ysorge/skedz-cors-proxy) or use another CORS proxy and use it to access CORS-protected schedules.
+
+Example with CORS proxy (here hosted at `https://cors.skedz.org`):
+
+```
+https://app.skedz.org/?url=https://cors.skedz.org/https://fosdem.org/2026/schedule/xml
+```
+
+The proxy adds the necessary CORS headers and includes a domain whitelist for security.
 
 
 ## Project status
