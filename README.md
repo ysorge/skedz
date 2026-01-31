@@ -120,6 +120,19 @@ https://app.skedz.org/?url=https://cors.skedz.org/https://fosdem.org/2026/schedu
 
 The proxy adds the necessary CORS headers and includes a domain whitelist for security.
 
+## Community projects
+
+Skedz is intentionally hackable. Ports, integrations, and other side projects are welcome. 
+
+### Skedz for Delta Chat (webxdc)
+
+A webxdc port to use Skedz inside chats (Delta Chat). View conference schedules and share liked sessions with everyone in the chat. 
+
+- App on webxdc.org: [https://webxdc.org/apps/#link2xt-skedz](https://webxdc.org/apps/#link2xt-skedz)
+- Source code: [https://codeberg.org/link2xt/skedz](https://codeberg.org/link2xt/skedz)
+- Delta Chat: [https://delta.chat/](https://delta.chat/)
+
+Community project by link2xt.
 
 ## Project status
 
