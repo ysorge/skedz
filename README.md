@@ -97,10 +97,16 @@ The app shell is cached by the service worker. Schedules are stored in an Indexe
 
 ### Direct schedule import via URL
 
-You can share a schedule by adding a `?url=` parameter to the app URL. This automatically loads the schedule from the specified endpoint. Example:
+You can share a schedule by adding a `?url=` parameter to the app URL. This automatically loads the schedule from the specified endpoint. The optional `title` parameter sets its name. The optional `start` and `end` parameters limit which sessions are imported.
 
 ```
 https://app.skedz.org/?url=https://api.events.ccc.de/congress/2025/schedule.json
+```
+
+With the optional parameters:
+
+```
+https://app.skedz.org/?url=https://api.events.ccc.de/congress/2025/schedule.json&title=39C3&start=2025-12-27&end=2025-12-30
 ```
 
 This is useful for sharing schedules with others or bookmarking schedules.

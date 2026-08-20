@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchAndParseSchedule } from '../data/fetchSchedule'
 import { MILLISECONDS_PER_MINUTE, MIN_AUTO_RELOAD_MINUTES } from '../utils/constants'
+import { applyImportFilter, type ImportFilter } from '../utils/importParams'
 
 export type RefreshState = {
   busy: boolean
@@ -19,7 +20,8 @@ export function useAutoRefresh(
     conferenceTimeZoneName?: string
     sessions: any[]
     fetchedAt: string
-  }) => Promise<void>
+  }) => Promise<void>,
+  importFilter?: ImportFilter
 ) {
   const [refreshState, setRefreshState] = useState<RefreshState>({
     busy: false,
@@ -46,10 +48,14 @@ export function useAutoRefresh(
         const result = await fetchAndParseSchedule(endpointUrl)
         const timestamp = new Date().toISOString()
 
+        // Re-apply the schedule's import boundary so sessions outside the
+        // originally imported range never reappear on refresh.
+        const sessions = applyImportFilter(result.sessions, importFilter)
+
         await onRefreshSuccess({
           conferenceTitle: result.conferenceTitle,
           conferenceTimeZoneName: result.conferenceTimeZoneName,
-          sessions: result.sessions,
+          sessions,
           fetchedAt: timestamp,
         })
 
@@ -67,7 +73,7 @@ export function useAutoRefresh(
         })
       }
     },
-    [endpointUrl, refreshState.busy, onRefreshSuccess]
+    [endpointUrl, refreshState.busy, onRefreshSuccess, importFilter]
   )
 
   // Set up auto-refresh timer

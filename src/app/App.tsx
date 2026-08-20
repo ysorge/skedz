@@ -11,6 +11,8 @@ import { useAutoRefresh } from '../hooks/useAutoRefresh'
 import { isCongressRunning, isCongressOver } from '../utils/congressState'
 import type { Session } from '../data/normalizeSchedule'
 import { updateScheduleTitle } from '../data/storage'
+import { buildImportFilter, sanitizeImportTitle, type ImportFilter } from '../utils/importParams'
+import { IMPORT_TITLE_PARAM_ENABLED, IMPORT_DATERANGE_PARAM_ENABLED } from '../utils/featureFlags'
 
 // Lazy load components that aren't needed on initial render
 const EndpointScreen = lazy(() => import('../components/EndpointScreen'))
@@ -53,7 +55,8 @@ export default function App() {
         sessions: data.sessions,
         fetchedAt: data.fetchedAt,
       })
-    }
+    },
+    scheduleData?.importFilter
   )
 
   // Local UI state
@@ -104,6 +107,8 @@ export default function App() {
 
   // Check for URL parameter on mount
   const [prefillUrl, setPrefillUrl] = useState<string | null>(null)
+  const [prefillTitle, setPrefillTitle] = useState<string | undefined>(undefined)
+  const [prefillImportFilter, setPrefillImportFilter] = useState<ImportFilter | undefined>(undefined)
   const [hasCheckedUrlParam, setHasCheckedUrlParam] = useState(false)
   
   useEffect(() => {
@@ -112,6 +117,19 @@ export default function App() {
     const urlParam = params.get('url')
     if (urlParam) {
       setPrefillUrl(urlParam)
+
+      if (IMPORT_TITLE_PARAM_ENABLED) {
+        setPrefillTitle(sanitizeImportTitle(params.get('title')))
+      }
+      if (IMPORT_DATERANGE_PARAM_ENABLED) {
+        setPrefillImportFilter(
+          buildImportFilter(
+            params.get('start') ?? params.get('startdate'),
+            params.get('end') ?? params.get('enddate')
+          )
+        )
+      }
+
       // Remove URL parameter from address bar
       window.history.replaceState({}, document.title, window.location.pathname)
       // Clear current schedule to show EndpointScreen with prefilled URL
@@ -263,6 +281,7 @@ export default function App() {
     conferenceTimeZoneName?: string
     sessions: Session[]
     fetchedAt: string
+    importFilter?: ImportFilter
   }) {
     await saveNewSchedule({
       endpointUrl: data.endpointUrl,
@@ -271,11 +290,14 @@ export default function App() {
       conferenceTimeZoneName: data.conferenceTimeZoneName,
       sessions: data.sessions,
       fetchedAt: data.fetchedAt,
+      importFilter: data.importFilter,
     })
     setFilters(DEFAULT_FILTERS)
     setSelected(null)
-    // Clear prefillUrl so it doesn't trigger modal again when returning to home
+    // Clear prefill state so it doesn't trigger the modal again when returning to home
     setPrefillUrl(null)
+    setPrefillTitle(undefined)
+    setPrefillImportFilter(undefined)
   }
 
   // Change source handler
@@ -331,6 +353,8 @@ export default function App() {
         <EndpointScreen 
           initialUrl={scheduleData?.endpointUrl}
           prefillUrl={prefillUrl}
+          prefillTitle={prefillTitle}
+          prefillImportFilter={prefillImportFilter}
           onLoaded={onLoaded}
           showInstallButton={!!deferredPrompt}
           onInstall={handleInstall}

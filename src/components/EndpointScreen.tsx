@@ -8,6 +8,8 @@ import { loadSchedule } from '../data/storage'
 import ScheduleLibrary from './ScheduleLibrary'
 import { showNotification } from '../utils/showNotification'
 import { generateTitle, getBestTitle } from '../utils/titleGenerator'
+import { sanitizeImportTitle, buildImportFilter, MAX_IMPORT_TITLE_LENGTH, type ImportFilter } from '../utils/importParams'
+import { IMPORT_TITLE_PARAM_ENABLED, IMPORT_DATERANGE_PARAM_ENABLED } from '../utils/featureFlags'
 
 async function readFileAsText(file: File): Promise<string> {
   return await new Promise((resolve, reject) => {
@@ -18,9 +20,20 @@ async function readFileAsText(file: File): Promise<string> {
   })
 }
 
+/** Convert an ISO timestamp to a value usable by <input type="datetime-local">. */
+function toDateTimeLocalValue(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+
 export default function EndpointScreen(props: {
   initialUrl?: string
   prefillUrl?: string | null
+  prefillTitle?: string
+  prefillImportFilter?: ImportFilter
   showInstallButton?: boolean
   onInstall?: () => void
   onLoaded: (data: {
@@ -30,6 +43,7 @@ export default function EndpointScreen(props: {
     conferenceTimeZoneName?: string
     sessions: Session[]
     fetchedAt: string
+    importFilter?: ImportFilter
   }) => void
 }) {
   const [url, setUrl] = useState('')
@@ -43,15 +57,22 @@ export default function EndpointScreen(props: {
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const fileDialogRef = useRef<HTMLDialogElement | null>(null)
   const [prefillHandled, setPrefillHandled] = useState(false)
+  const [titleOverride, setTitleOverride] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const importOptionsEnabled = IMPORT_TITLE_PARAM_ENABLED || IMPORT_DATERANGE_PARAM_ENABLED
 
-  // Handle prefillUrl from URL parameter
+  // Handle prefillUrl (and optional title/date-range) from URL parameters
   useEffect(() => {
     if (props.prefillUrl && !prefillHandled) {
       setUrl(props.prefillUrl)
+      if (props.prefillTitle) setTitleOverride(props.prefillTitle)
+      if (props.prefillImportFilter?.start) setStartDate(toDateTimeLocalValue(props.prefillImportFilter.start))
+      if (props.prefillImportFilter?.end) setEndDate(toDateTimeLocalValue(props.prefillImportFilter.end))
       setShowUrlModal(true)
       setPrefillHandled(true)
     }
-  }, [props.prefillUrl, prefillHandled])
+  }, [props.prefillUrl, props.prefillTitle, props.prefillImportFilter, prefillHandled])
 
   const allFormats = useMemo(() => formatRegistry.getAllFormats(), [])
 
@@ -123,8 +144,14 @@ export default function EndpointScreen(props: {
       // Generate a nice title from the URL
       const generatedTitle = generateTitle(url.trim())
       
-      // Use the best title: prefer conference title from file unless it's generic
-      const bestTitle = getBestTitle(out.conferenceTitle, generatedTitle)
+      // Use the best title: an explicit override wins, otherwise prefer the
+      // conference title from the file unless it's generic.
+      const sanitizedOverride = IMPORT_TITLE_PARAM_ENABLED ? sanitizeImportTitle(titleOverride) : undefined
+      const bestTitle = sanitizedOverride ?? getBestTitle(out.conferenceTitle, generatedTitle)
+
+      const importFilter = IMPORT_DATERANGE_PARAM_ENABLED
+        ? buildImportFilter(startDate || undefined, endDate || undefined)
+        : undefined
       
       const fetchedAt = new Date().toISOString()
       props.onLoaded({
@@ -133,6 +160,7 @@ export default function EndpointScreen(props: {
         conferenceTimeZoneName: out.conferenceTimeZoneName,
         sessions: out.sessions,
         fetchedAt,
+        importFilter,
       })
     } catch (e: any) {
       const errorMsg = String(e?.message ?? e)
@@ -334,6 +362,60 @@ export default function EndpointScreen(props: {
             </div>
           </div>
 
+          {importOptionsEnabled && (
+            <details
+              className="field"
+              style={{ marginTop: 12 }}
+              open={Boolean(titleOverride || startDate || endDate)}
+            >
+              <summary style={{ cursor: 'pointer' }}>Advanced import options</summary>
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {IMPORT_TITLE_PARAM_ENABLED && (
+                  <div>
+                    <label>Schedule title (optional)</label>
+                    <input
+                      className="inputModal"
+                      value={titleOverride}
+                      onChange={e => setTitleOverride(e.target.value)}
+                      placeholder="e.g. Håck ma’s 2026"
+                      maxLength={MAX_IMPORT_TITLE_LENGTH}
+                    />
+                    <div className="muted" style={{ marginTop: 4, fontSize: '12px' }}>
+                      Overrides the title detected from the schedule (useful for generic feeds).
+                    </div>
+                  </div>
+                )}
+                {IMPORT_DATERANGE_PARAM_ENABLED && (
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <div style={{ flex: '1 1 160px' }}>
+                      <label>Start date/time (optional)</label>
+                      <input
+                        className="inputModal"
+                        type="datetime-local"
+                        value={startDate}
+                        onChange={e => setStartDate(e.target.value)}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div style={{ flex: '1 1 160px' }}>
+                      <label>End date/time (optional)</label>
+                      <input
+                        className="inputModal"
+                        type="datetime-local"
+                        value={endDate}
+                        onChange={e => setEndDate(e.target.value)}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div className="muted" style={{ fontSize: '12px', flexBasis: '100%' }}>
+                      Sessions outside this range are permanently excluded at import time — useful for ongoing/generic calendar feeds.
+                    </div>
+                  </div>
+                )}
+              </div>
+            </details>
+          )}
+
           <div className="muted" style={{ marginTop: 12 }}>
             Paste a schedule URL. The app stores the schedule and your choices locally for offline use. When using a URL, you can also enable auto-refresh.
           </div>
@@ -389,7 +471,7 @@ export default function EndpointScreen(props: {
           {error ? <div className="error" style={{ marginTop: 10 }}>{error}</div> : null}
         </div>
         <div className="modalFooter" style={{ padding: '1rem', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          <button className="btn" onClick={() => { setShowUrlModal(false); setError(null); setUrl(''); setFormat(''); }}>
+          <button className="btn" onClick={() => { setShowUrlModal(false); setError(null); setUrl(''); setFormat(''); setTitleOverride(''); setStartDate(''); setEndDate('') }}>
             Cancel
           </button>
           <button className="btn btnPrimary" onClick={loadFromUrl} disabled={busy || Boolean(hint)}>

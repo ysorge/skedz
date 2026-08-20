@@ -1,6 +1,7 @@
 import { get, set, del } from 'idb-keyval'
 import type { Session } from './normalizeSchedule'
 import { addOrUpdateScheduleInLibrary, setLastActiveSchedule } from './scheduleLibrary'
+import type { ImportFilter } from '../utils/importParams'
 
 export type ScheduleKey = string
 
@@ -18,6 +19,12 @@ export type StoredSchedule = {
   fetchedAt: string // ISO
   sessions: Array<Omit<Session, 'start'> & { start: string }>
   autoReloadMinutes?: number | null
+  /**
+   * Boundary applied once at import time (and re-applied on every
+   * reload/auto-refresh) to permanently exclude sessions outside this
+   * date range. Sessions outside this range are never stored.
+   */
+  importFilter?: ImportFilter
 }
 
 type Index = {
