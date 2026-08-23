@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react'
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import type { Session } from '../data/normalizeSchedule'
 import { fetchAndParseSchedule } from '../data/fetchSchedule'
 import { parseSchedule, formatRegistry } from '../data/formats/registry'
@@ -19,6 +19,8 @@ async function readFileAsText(file: File): Promise<string> {
     reader.readAsText(file)
   })
 }
+
+const URL_DIALOG_EXIT_DURATION_MS = 140
 
 /** Convert an ISO timestamp to a value usable by <input type="datetime-local">. */
 function toDateTimeLocalValue(iso: string): string {
@@ -62,6 +64,11 @@ export default function EndpointScreen(props: {
   const [endDate, setEndDate] = useState('')
   const importOptionsEnabled = IMPORT_TITLE_PARAM_ENABLED || IMPORT_DATERANGE_PARAM_ENABLED
 
+  const closeUrlModal = useCallback(() => {
+    setShowUrlModal(false)
+    setError(null)
+  }, [])
+
   // Handle prefillUrl (and optional title/date-range) from URL parameters
   useEffect(() => {
     if (props.prefillUrl && !prefillHandled) {
@@ -94,20 +101,41 @@ export default function EndpointScreen(props: {
   useEffect(() => {
     const dlg = dialogRef.current
     if (!dlg) return
+
+    let openAnimationFrame: number | undefined
+    let closeTimer: number | undefined
+
     if (showUrlModal) {
       if (!dlg.open) dlg.showModal()
-    } else {
-      if (dlg.open) dlg.close()
+      dlg.classList.remove('is-closing')
+      openAnimationFrame = window.requestAnimationFrame(() => {
+        dlg.classList.add('is-visible')
+      })
+    } else if (dlg.open) {
+      dlg.classList.remove('is-visible')
+      dlg.classList.add('is-closing')
+
+      const closeDelay = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 0
+        : URL_DIALOG_EXIT_DURATION_MS
+
+      closeTimer = window.setTimeout(() => {
+        if (dlg.open) dlg.close()
+        dlg.classList.remove('is-closing')
+      }, closeDelay)
     }
 
     const onCancel = (e: Event) => {
       e.preventDefault()
-      setShowUrlModal(false)
-      setError(null)
+      closeUrlModal()
     }
     dlg.addEventListener('cancel', onCancel)
-    return () => dlg.removeEventListener('cancel', onCancel)
-  }, [showUrlModal])
+    return () => {
+      if (openAnimationFrame !== undefined) window.cancelAnimationFrame(openAnimationFrame)
+      if (closeTimer !== undefined) window.clearTimeout(closeTimer)
+      dlg.removeEventListener('cancel', onCancel)
+    }
+  }, [showUrlModal, closeUrlModal])
 
   useEffect(() => {
     const dlg = fileDialogRef.current
@@ -130,9 +158,20 @@ export default function EndpointScreen(props: {
   }, [showFileModal])
 
   const hint = useMemo(() => {
-    if (!url.trim()) return 'Please enter a schedule URL.'
+    if (!url.trim()) return ''
     try { new URL(url); return null } catch { return 'Please enter a valid URL.' }
   }, [url])
+
+  function handleUrlDialogClick(e: React.MouseEvent<HTMLDialogElement>) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const clickedOutside =
+      e.clientX < rect.left ||
+      e.clientX > rect.right ||
+      e.clientY < rect.top ||
+      e.clientY > rect.bottom
+
+    if (clickedOutside) closeUrlModal()
+  }
 
   async function loadFromUrl() {
     setShowUrlModal(false)
@@ -325,10 +364,16 @@ export default function EndpointScreen(props: {
         </div>
       </div>
 
-      <dialog ref={dialogRef}>
+      <dialog
+        ref={dialogRef}
+        className="urlImportDialog"
+        onClick={handleUrlDialogClick}
+        aria-labelledby="url-import-dialog-title"
+        aria-modal="true"
+      >
         <div className="modalHeader">
-          <h3>Load from URL</h3>
-          <button className="btn btnClose" onClick={() => { setShowUrlModal(false); setError(null); }}>×</button>
+          <h3 id="url-import-dialog-title">Load from URL</h3>
+          <button style={{ border: 'none', fontSize: '20px', paddingTop: '2px', paddingRight: '2px', fontWeight: 'bold' }} className="btn btnClose" onClick={closeUrlModal}>×</button>
         </div>
         <div className="modalBody">
           <div className="field">
@@ -357,38 +402,33 @@ export default function EndpointScreen(props: {
                 </option>
               ))}
             </select>
-            <div className="muted" style={{ marginTop: 4, fontSize: '12px' }}>
-              Format is auto-detected from URL. Select manually if detection fails.
-            </div>
           </div>
+
 
           {importOptionsEnabled && (
             <details
               className="field"
-              style={{ marginTop: 12 }}
+              style={{ marginTop: 22, marginBottom: 22 }}
               open={Boolean(titleOverride || startDate || endDate)}
             >
-              <summary style={{ cursor: 'pointer' }}>Advanced import options</summary>
+              <summary style={{ cursor: 'pointer', fontSize: '14px' }}>Advanced import options</summary>
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {IMPORT_TITLE_PARAM_ENABLED && (
                   <div>
-                    <label>Schedule title (optional)</label>
+                    <label>Schedule title &ndash; overrides the detected</label>
                     <input
                       className="inputModal"
                       value={titleOverride}
                       onChange={e => setTitleOverride(e.target.value)}
-                      placeholder="e.g. Håck ma’s 2026"
+                      placeholder=""
                       maxLength={MAX_IMPORT_TITLE_LENGTH}
                     />
-                    <div className="muted" style={{ marginTop: 4, fontSize: '12px' }}>
-                      Overrides the title detected from the schedule (useful for generic feeds).
-                    </div>
                   </div>
                 )}
                 {IMPORT_DATERANGE_PARAM_ENABLED && (
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <div style={{ flex: '1 1 160px' }}>
-                      <label>Start date/time (optional)</label>
+                      <label>Start date/time</label>
                       <input
                         className="inputModal"
                         type="datetime-local"
@@ -398,7 +438,7 @@ export default function EndpointScreen(props: {
                       />
                     </div>
                     <div style={{ flex: '1 1 160px' }}>
-                      <label>End date/time (optional)</label>
+                      <label>End date/time</label>
                       <input
                         className="inputModal"
                         type="datetime-local"
@@ -408,7 +448,7 @@ export default function EndpointScreen(props: {
                       />
                     </div>
                     <div className="muted" style={{ fontSize: '12px', flexBasis: '100%' }}>
-                      Sessions outside this range are permanently excluded at import time — useful for ongoing/generic calendar feeds.
+                      Sessions outside this date range are excluded during data import.
                     </div>
                   </div>
                 )}
