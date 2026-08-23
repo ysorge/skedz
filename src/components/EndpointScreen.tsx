@@ -62,6 +62,7 @@ export default function EndpointScreen(props: {
   const [titleOverride, setTitleOverride] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [advancedImportOptionsOpen, setAdvancedImportOptionsOpen] = useState(false)
   const importOptionsEnabled = IMPORT_TITLE_PARAM_ENABLED || IMPORT_DATERANGE_PARAM_ENABLED
 
   const closeUrlModal = useCallback(() => {
@@ -76,6 +77,9 @@ export default function EndpointScreen(props: {
       if (props.prefillTitle) setTitleOverride(props.prefillTitle)
       if (props.prefillImportFilter?.start) setStartDate(toDateTimeLocalValue(props.prefillImportFilter.start))
       if (props.prefillImportFilter?.end) setEndDate(toDateTimeLocalValue(props.prefillImportFilter.end))
+      if (props.prefillTitle || props.prefillImportFilter?.start || props.prefillImportFilter?.end) {
+        setAdvancedImportOptionsOpen(true)
+      }
       setShowUrlModal(true)
       setPrefillHandled(true)
     }
@@ -406,54 +410,69 @@ export default function EndpointScreen(props: {
 
 
           {importOptionsEnabled && (
-            <details
-              className="field"
+            <div
+              className={`field advancedImportOptions${advancedImportOptionsOpen ? ' is-open' : ''}`}
               style={{ marginTop: 22, marginBottom: 22 }}
-              open={Boolean(titleOverride || startDate || endDate)}
             >
-              <summary style={{ cursor: 'pointer', fontSize: '14px' }}>Advanced import options</summary>
-              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {IMPORT_TITLE_PARAM_ENABLED && (
-                  <div>
-                    <label>Schedule title &ndash; overrides the detected</label>
-                    <input
-                      className="inputModal"
-                      value={titleOverride}
-                      onChange={e => setTitleOverride(e.target.value)}
-                      placeholder=""
-                      maxLength={MAX_IMPORT_TITLE_LENGTH}
-                    />
+              <button
+                type="button"
+                className="advancedImportOptionsToggle"
+                aria-expanded={advancedImportOptionsOpen}
+                aria-controls="advanced-import-options-content"
+                onClick={() => setAdvancedImportOptionsOpen(open => !open)}
+              >
+                Advanced import options
+              </button>
+              <div
+                id="advanced-import-options-content"
+                className="advancedImportOptionsClip"
+                aria-hidden={!advancedImportOptionsOpen}
+              >
+                <div className="advancedImportOptionsContent">
+                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {IMPORT_TITLE_PARAM_ENABLED && (
+                      <div>
+                        <label>Schedule title &ndash; overrides the detected</label>
+                        <input
+                          className="inputModal"
+                          value={titleOverride}
+                          onChange={e => setTitleOverride(e.target.value)}
+                          placeholder=""
+                          maxLength={MAX_IMPORT_TITLE_LENGTH}
+                        />
+                      </div>
+                    )}
+                    {IMPORT_DATERANGE_PARAM_ENABLED && (
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 160px' }}>
+                          <label>Start date/time</label>
+                          <input
+                            className="inputModal"
+                            type="datetime-local"
+                            value={startDate}
+                            onChange={e => setStartDate(e.target.value)}
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                        <div style={{ flex: '1 1 160px' }}>
+                          <label>End date/time</label>
+                          <input
+                            className="inputModal"
+                            type="datetime-local"
+                            value={endDate}
+                            onChange={e => setEndDate(e.target.value)}
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                        <div className="muted" style={{ fontSize: '12px', flexBasis: '100%' }}>
+                          Sessions outside this date range are excluded during data import.
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-                {IMPORT_DATERANGE_PARAM_ENABLED && (
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <div style={{ flex: '1 1 160px' }}>
-                      <label>Start date/time</label>
-                      <input
-                        className="inputModal"
-                        type="datetime-local"
-                        value={startDate}
-                        onChange={e => setStartDate(e.target.value)}
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-                    <div style={{ flex: '1 1 160px' }}>
-                      <label>End date/time</label>
-                      <input
-                        className="inputModal"
-                        type="datetime-local"
-                        value={endDate}
-                        onChange={e => setEndDate(e.target.value)}
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-                    <div className="muted" style={{ fontSize: '12px', flexBasis: '100%' }}>
-                      Sessions outside this date range are excluded during data import.
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
-            </details>
+            </div>
           )}
 
           <div className="muted" style={{ marginTop: 12 }}>
@@ -511,7 +530,7 @@ export default function EndpointScreen(props: {
           {error ? <div className="error" style={{ marginTop: 10 }}>{error}</div> : null}
         </div>
         <div className="modalFooter" style={{ padding: '1rem', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          <button className="btn" onClick={() => { setShowUrlModal(false); setError(null); setUrl(''); setFormat(''); setTitleOverride(''); setStartDate(''); setEndDate('') }}>
+          <button className="btn" onClick={() => { setShowUrlModal(false); setError(null); setUrl(''); setFormat(''); setTitleOverride(''); setStartDate(''); setEndDate(''); setAdvancedImportOptionsOpen(false) }}>
             Cancel
           </button>
           <button className="btn btnPrimary" onClick={loadFromUrl} disabled={busy || Boolean(hint)}>

@@ -734,6 +734,69 @@ dialog::backdrop{
   border-color: var(--session-title);
   box-shadow: 0 0 0 3px rgba(41, 149, 225, 0.15);
 }
+.advancedImportOptionsToggle{
+  align-self:flex-start;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:0;
+  border:0;
+  background:none;
+  color:var(--text);
+  font:inherit;
+  font-size:14px;
+  cursor:pointer;
+}
+.advancedImportOptionsToggle::before{
+  content:"";
+  width:0;
+  height:0;
+  border-top:4px solid transparent;
+  border-bottom:4px solid transparent;
+  border-left:6px solid currentColor;
+  transform:rotate(0);
+  transition:transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.advancedImportOptionsToggle:focus-visible{
+  outline:2px solid var(--session-title);
+  outline-offset:4px;
+  border-radius:2px;
+}
+.advancedImportOptions > .advancedImportOptionsClip{
+  display:grid;
+  grid-template-rows:0fr;
+  opacity:0;
+  transform:translateY(-4px);
+  visibility:hidden;
+  pointer-events:none;
+  transition:
+    grid-template-rows 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease,
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 240ms;
+}
+.advancedImportOptions.is-open > .advancedImportOptionsClip{
+  grid-template-rows:1fr;
+  opacity:1;
+  transform:translateY(0);
+  visibility:visible;
+  pointer-events:auto;
+  transition-delay:0s;
+}
+.advancedImportOptions.is-open > .advancedImportOptionsToggle::before{
+  transform:rotate(90deg);
+}
+.advancedImportOptionsContent{
+  min-height:0;
+  overflow:hidden;
+}
+@media (prefers-reduced-motion: reduce){
+  .advancedImportOptions > .advancedImportOptionsClip,
+  .advancedImportOptionsToggle::before{
+    transition-duration:0.01ms;
+    transition-delay:0s;
+  }
+}
 .mono{
   /*font-variant-numeric: tabular-nums;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;*/
