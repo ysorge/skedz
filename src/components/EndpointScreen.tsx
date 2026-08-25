@@ -167,6 +167,11 @@ export default function EndpointScreen(props: {
   }, [url])
 
   function handleUrlDialogClick(e: React.MouseEvent<HTMLDialogElement>) {
+    // Firefox may report popup-menu clicks from a native <select> with
+    // coordinates outside the dialog. Only the backdrop itself has the
+    // dialog element as both the event target and current target.
+    if (e.target !== e.currentTarget) return
+
     const rect = e.currentTarget.getBoundingClientRect()
     const clickedOutside =
       e.clientX < rect.left ||

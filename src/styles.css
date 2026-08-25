@@ -1,6 +1,6 @@
 /* Light mode (default) */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   
   /* Light mode colors */
   --bg: white;
@@ -32,6 +32,7 @@
 /* Dark mode */
 @media (prefers-color-scheme: dark) {
   :root {
+    color-scheme: dark;
     --bg: #10171e;
     --text: #cfd1d2;
     --h1-color: #cfd1d2;
@@ -317,6 +318,11 @@ h2{ font-size:16px; color:var(--text); }
 }
 select {
   cursor: pointer;
+}
+select option,
+select optgroup {
+  background-color: var(--card-bg);
+  color: var(--text);
 }
 input[type="text"], select{
   width:100%;
