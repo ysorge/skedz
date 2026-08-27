@@ -280,14 +280,12 @@ export default function EndpointScreen(props: {
   async function finishScheduleImport(
     pending: PendingScheduleImport,
     resolvedTimeZone?: string,
-    applyDateFilter = true
+    applyDateFilter = true,
+    preParseResult?: ReturnType<typeof canonicalScheduleToAppFormat>
   ) {
-    const canonical = await parseSchedule(
-      pending.sourceContent,
-      pending.sourceFormat,
-      { timeZone: resolvedTimeZone }
+    const parsed = preParseResult ?? canonicalScheduleToAppFormat(
+      await parseSchedule(pending.sourceContent, pending.sourceFormat, { timeZone: resolvedTimeZone })
     )
-    const parsed = canonicalScheduleToAppFormat(canonical)
     if (parsed.sessions.length === 0) {
       const detail = parsed.importIssues[0]?.message
       const count = parsed.importIssues.length
@@ -359,7 +357,7 @@ export default function EndpointScreen(props: {
         return
       }
 
-      await finishScheduleImport(pending, resolvedTimeZone)
+      await finishScheduleImport(pending, resolvedTimeZone, true, out)
     } catch (e: any) {
       const errorMsg = String(e?.message ?? e)
       // Detect CORS errors and provide helpful guidance
@@ -455,7 +453,7 @@ export default function EndpointScreen(props: {
         return
       }
 
-      await finishScheduleImport(pending, scheduleTimeZone)
+      await finishScheduleImport(pending, scheduleTimeZone, true, out)
     } catch (e: any) {
       const errorMsg = String(e?.message ?? e)
       setError(errorMsg)
