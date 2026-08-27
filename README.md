@@ -97,7 +97,9 @@ The app shell is cached by the service worker. Schedules are stored in an Indexe
 
 ### Direct schedule import via URL
 
-You can share a schedule by adding a `?url=` parameter to the app URL. This automatically loads the schedule from the specified endpoint. The optional `title` parameter sets its name. The optional `start` and `end` parameters limit which sessions are imported.
+You can share a schedule by adding a `?url=` parameter to the app URL. This automatically loads the schedule from the specified endpoint.
+
+The optional `title` parameter sets its name. The optional `start` and `end` parameters limit which sessions are imported; an `end` value without a time includes that complete day. The optional `timezone` parameter sets or overrides the event time zone with an IANA identifier. If a local timestamp cannot be interpreted without an event time zone, the user is asked before importing.
 
 ```
 https://app.skedz.org/?url=https://api.events.ccc.de/congress/2025/schedule.json
@@ -106,7 +108,7 @@ https://app.skedz.org/?url=https://api.events.ccc.de/congress/2025/schedule.json
 With the optional parameters:
 
 ```
-https://app.skedz.org/?url=https://api.events.ccc.de/congress/2025/schedule.json&title=39C3&start=2025-12-27&end=2025-12-30
+https://app.skedz.org/?url=https://api.events.ccc.de/congress/2025/schedule.json&title=39C3&start=2025-12-27&end=2025-12-30&timezone=Europe/Berlin
 ```
 
 This is useful for sharing schedules with others or bookmarking schedules.

@@ -1,4 +1,18 @@
-import type { ScheduleParser, CanonicalSchedule, CanonicalSession, FormatMetadata } from '../types'
+import type {
+  ScheduleParser,
+  CanonicalSchedule,
+  CanonicalSession,
+  FormatMetadata,
+  ScheduleParseOptions,
+  ScheduleImportIssue,
+} from '../types'
+import {
+  normalizeScheduleDateTime,
+  parseScheduleDateTime,
+  scheduleDateTimeHasExplicitOffset,
+} from '../parseDateTime'
+import { canonicalizeTimeZone } from '../../../utils/importParams'
+import { getDayKeyInTimeZone } from '../../../utils/date'
 
 /**
  * Parser for XCal (XML iCalendar) format
@@ -14,44 +28,53 @@ export class XCalParser implements ScheduleParser {
 
   canParse(content: string): boolean {
     const normalized = content.toLowerCase()
-    return content.trim().startsWith('<?xml') && (normalized.includes('<icalendar') || normalized.includes('<vcalendar'))
+    return normalized.includes('<icalendar') || normalized.includes('<vcalendar')
   }
 
-  parse(content: string): CanonicalSchedule {
+  parse(content: string, options?: ScheduleParseOptions): CanonicalSchedule {
     const parser = new DOMParser()
     const doc = parser.parseFromString(content, 'application/xml')
 
-    const parseError = doc.querySelector('parsererror')
+    const parseError = this.firstByLocalName(doc, 'parsererror')
     if (parseError) {
       throw new Error('XML parsing failed: ' + parseError.textContent)
     }
 
     const sessions: CanonicalSession[] = []
+    const importIssues: ScheduleImportIssue[] = []
     let conferenceTitle: string | undefined
     let conferenceTimeZoneName: string | undefined
+    const parseState = { requiresTimeZone: false }
 
     // Parse VCALENDAR properties
-    const vcalendar = doc.querySelector('vcalendar')
+    const vcalendar = this.firstByLocalName(doc, 'vcalendar')
     if (!vcalendar) {
       throw new Error('No vcalendar element found in XCal')
     }
 
     // Get conference name from X-WR-CALNAME if available
-    const calNameEl = vcalendar.querySelector('x-wr-calname')
+    const calNameEl = this.firstByLocalName(vcalendar, 'x-wr-calname')
     if (calNameEl) {
-      conferenceTitle = calNameEl.textContent?.trim() || undefined
+      conferenceTitle = this.getPropertyValue(calNameEl)
     }
 
     // Get timezone from X-WR-TIMEZONE if available
-    const tzEl = vcalendar.querySelector('x-wr-timezone')
-    if (tzEl) {
-      conferenceTimeZoneName = tzEl.textContent?.trim() || undefined
-    }
-
     // Parse VEVENT components
-    const events = vcalendar.querySelectorAll('vevent')
-    for (const event of Array.from(events)) {
-      const session = this.parseEvent(event, conferenceTimeZoneName)
+    const events = this.allByLocalName(vcalendar, 'vevent')
+    const tzEl = this.firstByLocalName(vcalendar, 'x-wr-timezone')
+    const sourceTimeZone = canonicalizeTimeZone(this.getPropertyValue(tzEl))
+    const eventTimeZones = new Set(
+      events
+        .map(event => this.getPropertyTimeZone(this.firstByLocalName(event, 'dtstart')))
+        .filter((value): value is string => Boolean(value))
+    )
+    const consistentEventTimeZone = eventTimeZones.size === 1 ? [...eventTimeZones][0] : undefined
+    conferenceTimeZoneName = canonicalizeTimeZone(options?.timeZone)
+      ?? sourceTimeZone
+      ?? consistentEventTimeZone
+
+    for (const event of events) {
+      const session = this.parseEvent(event, conferenceTimeZoneName, importIssues, parseState)
       if (session) {
         sessions.push(session)
       }
@@ -63,37 +86,103 @@ export class XCalParser implements ScheduleParser {
       sessions,
       conferenceTitle,
       conferenceTimeZoneName,
+      requiresTimeZoneForParsing: parseState.requiresTimeZone,
+      importIssues,
     }
   }
 
-  private parseEvent(event: Element, defaultTz?: string): CanonicalSession | null {
+  private parseEvent(
+    event: Element,
+    defaultTz: string | undefined,
+    importIssues: ScheduleImportIssue[],
+    parseState: { requiresTimeZone: boolean }
+  ): CanonicalSession | null {
     // Get SUMMARY (title)
-    const summary = event.querySelector('summary')?.textContent?.trim()
+    const summary = this.getPropertyValue(this.firstByLocalName(event, 'summary'))
     if (!summary) return null
 
     // Get DTSTART (start date/time)
-    const dtstart = event.querySelector('dtstart')?.textContent?.trim()
+    const dtstartElement = this.firstByLocalName(event, 'dtstart')
+    const dtstart = this.getPropertyValue(dtstartElement)
     if (!dtstart) return null
+    const rawStartTimeZone = this.getPropertyTimeZoneId(dtstartElement)
+    const startTimeZone = canonicalizeTimeZone(rawStartTimeZone)
+    const pentabarfStart = normalizeScheduleDateTime(this.getPentabarfValue(event, 'start'))
+    const exactPentabarfStart = scheduleDateTimeHasExplicitOffset(pentabarfStart) ? pentabarfStart : undefined
+    if (!rawStartTimeZone
+      && !scheduleDateTimeHasExplicitOffset(dtstart)
+      && !exactPentabarfStart
+      && !defaultTz) {
+      parseState.requiresTimeZone = true
+    }
 
-    const start = this.parseDateTime(dtstart)
-    if (!start || Number.isNaN(start.getTime())) return null
+    if (rawStartTimeZone && !startTimeZone && !exactPentabarfStart) {
+      this.addIssue(importIssues, {
+        code: 'unsupported-time-zone',
+        message: `Unsupported TZID "${rawStartTimeZone}"; this session was skipped.`,
+        sessionTitle: summary,
+        rawValue: dtstart,
+      })
+      return null
+    }
+    if (rawStartTimeZone && !startTimeZone && exactPentabarfStart) {
+      this.addIssue(importIssues, {
+        code: 'unsupported-time-zone',
+        message: `Unsupported TZID "${rawStartTimeZone}"; the exact Pentabarf offset was used instead.`,
+        sessionTitle: summary,
+        rawValue: dtstart,
+      })
+    }
+
+    const startSource = startTimeZone || scheduleDateTimeHasExplicitOffset(dtstart)
+      ? dtstart
+      : exactPentabarfStart ?? dtstart
+    const start = parseScheduleDateTime(startSource, startTimeZone ?? defaultTz)
+    if (!start || Number.isNaN(start.getTime())) {
+      this.addIssue(importIssues, {
+        code: 'invalid-start',
+        message: 'The start time could not be interpreted; this session was skipped.',
+        sessionTitle: summary,
+        rawValue: startSource,
+      })
+      return null
+    }
 
     // Get UID (unique identifier)
-    const uid = event.querySelector('uid')?.textContent?.trim() || `${summary}|${start.toISOString()}`
+    const uid = this.getPropertyValue(this.firstByLocalName(event, 'uid')) || `${summary}|${start.toISOString()}`
 
     // Get DTEND or DURATION
     let end: Date | undefined
     let durationMinutes: number | undefined
 
-    const dtend = event.querySelector('dtend')?.textContent?.trim()
+    const dtendElement = this.firstByLocalName(event, 'dtend')
+    const dtend = this.getPropertyValue(dtendElement)
     if (dtend) {
-      const endDate = this.parseDateTime(dtend)
+      const rawEndTimeZone = this.getPropertyTimeZoneId(dtendElement)
+      const endTimeZone = canonicalizeTimeZone(rawEndTimeZone)
+      const pentabarfEnd = normalizeScheduleDateTime(this.getPentabarfValue(event, 'end'))
+      const exactPentabarfEnd = scheduleDateTimeHasExplicitOffset(pentabarfEnd) ? pentabarfEnd : undefined
+      const endSource = endTimeZone || scheduleDateTimeHasExplicitOffset(dtend)
+        ? dtend
+        : exactPentabarfEnd ?? dtend
+      const endDate = rawEndTimeZone && !endTimeZone && !exactPentabarfEnd
+        ? undefined
+        : parseScheduleDateTime(endSource, endTimeZone ?? defaultTz)
       if (endDate && !Number.isNaN(endDate.getTime())) {
         end = endDate
         durationMinutes = Math.round((endDate.getTime() - start.getTime()) / 60000)
+      } else {
+        this.addIssue(importIssues, {
+          code: rawEndTimeZone && !endTimeZone ? 'unsupported-time-zone' : 'invalid-end',
+          message: rawEndTimeZone && !endTimeZone
+            ? `Unsupported DTEND TZID "${rawEndTimeZone}"; the session was imported without an end time.`
+            : 'The end time could not be interpreted; the session was imported without an end time.',
+          sessionTitle: summary,
+          rawValue: endSource,
+        })
       }
     } else {
-      const duration = event.querySelector('duration')?.textContent?.trim()
+      const duration = this.getPropertyValue(this.firstByLocalName(event, 'duration'))
       if (duration) {
         durationMinutes = this.parseDuration(duration)
         if (durationMinutes) {
@@ -103,36 +192,36 @@ export class XCalParser implements ScheduleParser {
     }
 
     // Get LOCATION (room)
-    const location = event.querySelector('location')?.textContent?.trim() || undefined
+    const location = this.getPropertyValue(this.firstByLocalName(event, 'location'))
 
     // Get DESCRIPTION
-    const description = event.querySelector('description')?.textContent?.trim() || undefined
+    const description = this.getPropertyValue(this.firstByLocalName(event, 'description'))
 
     // Get URL
-    const url = event.querySelector('url')?.textContent?.trim() || undefined
+    const url = this.getPropertyValue(this.firstByLocalName(event, 'url'))
 
     // Get LANGUAGE (pentabarf:language or pentabarf:language-code)
-    let language = event.querySelector('pentabarf\\:language')?.textContent?.trim()
+    let language = this.getPentabarfValue(event, 'language')
     if (!language) {
-      language = event.querySelector('pentabarf\\:language-code')?.textContent?.trim()
+      language = this.getPentabarfValue(event, 'language-code')
     }
 
     // Get ATTENDEES (speakers)
     const speakers: string[] = []
-    const attendeeEls = event.querySelectorAll('attendee')
-    for (const attendee of Array.from(attendeeEls)) {
-      const name = attendee.textContent?.trim()
+    const attendeeEls = this.allByLocalName(event, 'attendee')
+    for (const attendee of attendeeEls) {
+      const name = this.getPropertyValue(attendee)
       if (name) speakers.push(name)
     }
 
     // Get CATEGORY (type of session)
-    const category = event.querySelector('category')?.textContent?.trim() || undefined
+    const category = this.getPropertyValue(this.firstByLocalName(event, 'category'))
 
     // Get CATEGORIES (track - usually from categories element)
     const categories: string[] = []
-    const categoryEls = event.querySelectorAll('categories')
-    for (const cat of Array.from(categoryEls)) {
-      const val = cat.textContent?.trim()
+    const categoryEls = this.allByLocalName(event, 'categories')
+    for (const cat of categoryEls) {
+      const val = this.getPropertyValue(cat)
       if (val) categories.push(val)
     }
 
@@ -141,7 +230,9 @@ export class XCalParser implements ScheduleParser {
       title: summary,
       start,
       end,
-      dayKey: this.localDayKey(start),
+      dayKey: startTimeZone || defaultTz
+        ? getDayKeyInTimeZone(start, startTimeZone ?? defaultTz)
+        : this.dayKeyFromRaw(startSource) ?? getDayKeyInTimeZone(start),
       room: location,
       track: categories[0], // Use first category as track
       type: category,
@@ -152,6 +243,51 @@ export class XCalParser implements ScheduleParser {
       description,
       url,
     }
+  }
+
+  private allByLocalName(root: Document | Element, name: string): Element[] {
+    const target = name.toLowerCase()
+    return Array.from(root.getElementsByTagName('*'))
+      .filter(element => (element.localName || element.nodeName).toLowerCase() === target)
+  }
+
+  private firstByLocalName(root: Document | Element, name: string): Element | undefined {
+    return this.allByLocalName(root, name)[0]
+  }
+
+  private getPropertyValue(element: Element | null | undefined): string | undefined {
+    if (!element) return undefined
+    for (const valueName of ['date-time', 'date', 'duration', 'text', 'uri', 'cal-address']) {
+      const value = this.firstByLocalName(element, valueName)?.textContent?.trim()
+      if (value) return value
+    }
+    return element.textContent?.trim() || undefined
+  }
+
+  private getPropertyTimeZoneId(element: Element | null | undefined): string | undefined {
+    if (!element) return undefined
+    const parameters = this.firstByLocalName(element, 'parameters')
+    const tzid = parameters ? this.firstByLocalName(parameters, 'tzid') : undefined
+    return this.getPropertyValue(tzid)
+  }
+
+  private getPropertyTimeZone(element: Element | null | undefined): string | undefined {
+    return canonicalizeTimeZone(this.getPropertyTimeZoneId(element))
+  }
+
+  private getPentabarfValue(event: Element, name: string): string | undefined {
+    const elements = Array.from(event.getElementsByTagNameNS('http://pentabarf.org', name))
+    return elements[0]?.textContent?.trim() || undefined
+  }
+
+  private dayKeyFromRaw(raw: string): string | undefined {
+    const match = raw.match(/^(\d{4})-?(\d{2})-?(\d{2})/)
+    return match ? `${match[1]}-${match[2]}-${match[3]}` : undefined
+  }
+
+  private addIssue(issues: ScheduleImportIssue[], issue: ScheduleImportIssue) {
+    if (issues.length >= 50) return
+    issues.push({ ...issue, rawValue: issue.rawValue?.slice(0, 200) })
   }
 
   private parseDuration(duration: string): number | undefined {
@@ -166,47 +302,4 @@ export class XCalParser implements ScheduleParser {
     return hours * 60 + minutes + Math.round(seconds / 60)
   }
 
-  private localDayKey(d: Date): string {
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const da = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${da}`
-  }
-
-  /**
-   * Parse iCal datetime format: 20260201T090000 or 20260201T090000Z
-   */
-  private parseDateTime(dtString: string): Date | null {
-    // Try standard Date parsing first
-    const standardDate = new Date(dtString)
-    if (!Number.isNaN(standardDate.getTime())) {
-      return standardDate
-    }
-
-    // Parse iCal format: YYYYMMDDTHHmmss or YYYYMMDDTHHmmssZ
-    const match = dtString.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/)
-    if (!match) return null
-
-    const [, year, month, day, hour, minute, second, isUTC] = match
-    
-    if (isUTC) {
-      return new Date(Date.UTC(
-        parseInt(year),
-        parseInt(month) - 1,
-        parseInt(day),
-        parseInt(hour),
-        parseInt(minute),
-        parseInt(second)
-      ))
-    } else {
-      return new Date(
-        parseInt(year),
-        parseInt(month) - 1,
-        parseInt(day),
-        parseInt(hour),
-        parseInt(minute),
-        parseInt(second)
-      )
-    }
-  }
 }

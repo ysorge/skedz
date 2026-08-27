@@ -1,12 +1,34 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+
+function serveDirectImportNavigation(): Plugin {
+  return {
+    name: 'serve-direct-import-navigation',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.method === 'GET' && req.url) {
+          const requestUrl = new URL(req.url, 'http://localhost')
+
+          // Vite reserves `?url` for asset imports. For a navigation to the
+          // app root, only the browser needs the query string; internally the
+          // dev server can safely serve the regular SPA entry point.
+          if (requestUrl.pathname === '/' && requestUrl.searchParams.has('url')) {
+            req.url = '/'
+          }
+        }
+        next()
+      })
+    },
+  }
+}
 
 export default defineConfig({
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(process.env.npm_package_version)
   },
   plugins: [
+    serveDirectImportNavigation(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',

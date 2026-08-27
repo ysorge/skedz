@@ -1,4 +1,4 @@
-import type { ScheduleParser, ScheduleFormat, FormatMetadata } from './types'
+import type { ScheduleParser, ScheduleFormat, FormatMetadata, ScheduleParseOptions } from './types'
 import { ScheduleJsonParser } from './parsers/ScheduleJsonParser'
 import { ScheduleXmlParser } from './parsers/ScheduleXmlParser'
 import { XCalParser } from './parsers/XCalParser'
@@ -154,7 +154,8 @@ class FormatRegistry {
     }
 
     // Check for XCal
-    if (trimmed.startsWith('<?xml') && (trimmed.includes('<icalendar') || trimmed.includes('<vcalendar'))) {
+    const normalized = trimmed.toLowerCase()
+    if (normalized.includes('<icalendar') || normalized.includes('<vcalendar')) {
       return 'xcal-frab'
     }
 
@@ -194,7 +195,8 @@ export const formatRegistry = new FormatRegistry()
  */
 export async function parseSchedule(
   content: string,
-  format?: ScheduleFormat
+  format?: ScheduleFormat,
+  options?: ScheduleParseOptions
 ) {
   // If format is specified, use it
   if (format) {
@@ -202,7 +204,7 @@ export async function parseSchedule(
     if (!parser) {
       throw new Error(`Unknown format: ${format}`)
     }
-    return await parser.parse(content)
+    return await parser.parse(content, options)
   }
 
   // Auto-detect format
@@ -216,5 +218,5 @@ export async function parseSchedule(
     throw new Error(`Parser not found for format: ${detectedFormat}`)
   }
 
-  return await parser.parse(content)
+  return await parser.parse(content, options)
 }

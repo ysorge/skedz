@@ -1,5 +1,6 @@
 import type { Session } from '../data/normalizeSchedule'
 import { MAX_SEARCH_QUERY_LENGTH } from './constants'
+import { getDayKeyInTimeZone } from './date'
 
 export type Filters = {
   track: string | 'ALL'
@@ -19,13 +20,13 @@ export const DEFAULT_FILTERS: Filters = {
   q: '',
 }
 
-export function applyFilters(sessions: Session[], f: Filters): Session[] {
+export function applyFilters(sessions: Session[], f: Filters, timeZone?: string): Session[] {
   // Sanitize and limit search query to prevent performance issues
   const q = f.q.trim().toLowerCase().slice(0, MAX_SEARCH_QUERY_LENGTH)
 
   return sessions.filter(s => {
     if (f.track !== 'ALL' && (s.track ?? '') !== f.track) return false
-    if (f.day !== 'ALL' && s.dayKey !== f.day) return false
+    if (f.day !== 'ALL' && getDayKeyInTimeZone(s.start, timeZone) !== f.day) return false
     if (f.room !== 'ALL' && (s.room ?? '') !== f.room) return false
     if (f.type !== 'ALL' && (s.type ?? '') !== f.type) return false
     if (f.language !== 'ALL' && (s.language ?? '') !== f.language) return false

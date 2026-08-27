@@ -1,4 +1,13 @@
-import type { ScheduleParser, CanonicalSchedule, CanonicalSession, FormatMetadata } from '../types'
+import type {
+  ScheduleParser,
+  CanonicalSchedule,
+  CanonicalSession,
+  FormatMetadata,
+  ScheduleParseOptions,
+  ScheduleImportIssue,
+} from '../types'
+import { parseScheduleDateTime, scheduleDateTimeHasExplicitOffset } from '../parseDateTime'
+import { canonicalizeTimeZone } from '../../../utils/importParams'
 
 /**
  * XML (frab-compatible / schedule.xml) format
@@ -18,7 +27,7 @@ export class ScheduleXmlParser implements ScheduleParser {
     return trimmed.startsWith('<?xml') && /<\s*schedule\b/i.test(trimmed)
   }
 
-  parse(content: string): CanonicalSchedule {
+  parse(content: string, options?: ScheduleParseOptions): CanonicalSchedule {
     const parser = new DOMParser()
     const doc = parser.parseFromString(content, 'application/xml')
 
@@ -35,18 +44,17 @@ export class ScheduleXmlParser implements ScheduleParser {
 
     const conferenceEl = scheduleEl.querySelector('conference')
     const sessions: CanonicalSession[] = []
+    const importIssues: ScheduleImportIssue[] = []
+    const parseState = { requiresTimeZone: false }
 
     // Parse conference metadata
     const conferenceTitle = conferenceEl?.querySelector('title')?.textContent || undefined
-    const conferenceTimeZoneName = conferenceEl?.querySelector('time_zone_name')?.textContent || undefined
+    const conferenceTimeZoneName = canonicalizeTimeZone(options?.timeZone)
+      ?? canonicalizeTimeZone(conferenceEl?.querySelector('time_zone_name')?.textContent)
     const conferenceStartStr = conferenceEl?.querySelector('start')?.textContent || undefined
     const conferenceEndStr = conferenceEl?.querySelector('end')?.textContent || undefined
-    const rawConferenceStart = conferenceStartStr ? new Date(conferenceStartStr) : undefined
-    const conferenceStart =
-      rawConferenceStart && !isNaN(rawConferenceStart.getTime()) ? rawConferenceStart : undefined
-    const rawConferenceEnd = conferenceEndStr ? new Date(conferenceEndStr) : undefined
-    const conferenceEnd =
-      rawConferenceEnd && !isNaN(rawConferenceEnd.getTime()) ? rawConferenceEnd : undefined
+    const conferenceStart = parseScheduleDateTime(conferenceStartStr, conferenceTimeZoneName)
+    const conferenceEnd = parseScheduleDateTime(conferenceEndStr, conferenceTimeZoneName)
 
     // Parse days
     const days = scheduleEl.querySelectorAll('day')
@@ -61,7 +69,14 @@ export class ScheduleXmlParser implements ScheduleParser {
         // Parse events
         const events = room.querySelectorAll('event')
         for (const event of Array.from(events)) {
-          const session = this.parseEvent(event, roomName, dayDate)
+          const session = this.parseEvent(
+            event,
+            roomName,
+            dayDate,
+            conferenceTimeZoneName,
+            importIssues,
+            parseState
+          )
           if (session) {
             sessions.push(session)
           }
@@ -77,10 +92,19 @@ export class ScheduleXmlParser implements ScheduleParser {
       conferenceTimeZoneName,
       conferenceStart,
       conferenceEnd,
+      requiresTimeZoneForParsing: parseState.requiresTimeZone,
+      importIssues,
     }
   }
 
-  private parseEvent(event: Element, roomName: string | undefined, dayDate: string | undefined): CanonicalSession | null {
+  private parseEvent(
+    event: Element,
+    roomName: string | undefined,
+    dayDate: string | undefined,
+    timeZone: string | undefined,
+    importIssues: ScheduleImportIssue[],
+    parseState: { requiresTimeZone: boolean }
+  ): CanonicalSession | null {
     const title = event.querySelector('title')?.textContent?.trim()
     if (!title) return null
 
@@ -88,15 +112,28 @@ export class ScheduleXmlParser implements ScheduleParser {
     const startStr = event.querySelector('start')?.textContent?.trim()
 
     let start: Date | null = null
+    let rawStart: string | undefined
     if (dateStr) {
-      start = new Date(dateStr)
-      if (Number.isNaN(start.getTime())) start = null
+      rawStart = dateStr
+      if (!timeZone && !scheduleDateTimeHasExplicitOffset(rawStart)) parseState.requiresTimeZone = true
+      start = parseScheduleDateTime(dateStr, timeZone) ?? null
     } else if (dayDate && startStr) {
-      start = new Date(`${dayDate}T${startStr}`)
-      if (Number.isNaN(start.getTime())) start = null
+      rawStart = `${dayDate}T${startStr}`
+      if (!timeZone && !scheduleDateTimeHasExplicitOffset(rawStart)) parseState.requiresTimeZone = true
+      start = parseScheduleDateTime(rawStart, timeZone) ?? null
     }
 
-    if (!start) return null
+    if (!start) {
+      if (importIssues.length < 50) {
+        importIssues.push({
+          code: 'invalid-start',
+          message: 'The start time could not be interpreted; this session was skipped.',
+          sessionTitle: title,
+          rawValue: rawStart?.slice(0, 200),
+        })
+      }
+      return null
+    }
 
     const id = event.getAttribute('id') || event.getAttribute('guid') || `${title}|${start.toISOString()}|${roomName || ''}`
     const durationStr = event.querySelector('duration')?.textContent?.trim()

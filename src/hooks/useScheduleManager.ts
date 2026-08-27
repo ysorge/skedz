@@ -16,10 +16,11 @@ import {
   clearLastActiveSchedule,
   type ScheduleMetadata 
 } from '../data/scheduleLibrary'
-import { getDefaultAutoReload } from './useViewParams'
+import { resolveAutoReloadMinutes } from './useViewParams'
 import { ensureNotificationPermission } from '../utils/reminders'
 import { applyImportFilter, type ImportFilter } from '../utils/importParams'
 import { resolveRefreshedConferenceTitle } from '../data/refreshSchedule'
+import type { ScheduleImportIssue } from '../data/formats/types'
 
 export type ScheduleData = {
   scheduleKey: ScheduleKey
@@ -31,6 +32,7 @@ export type ScheduleData = {
   sessions: Session[]
   autoReloadMinutes?: number | null
   importFilter?: ImportFilter
+  importIssues?: ScheduleImportIssue[]
 }
 
 type ScheduleState = {
@@ -72,9 +74,7 @@ export function useScheduleManager() {
         // Re-apply the stored import boundary defensively, in case sessions
         // were ever persisted before this was enforced.
         const sessions = applyImportFilter(rawSessions, stored.importFilter)
-        const autoReloadMinutes = stored.autoReloadMinutes !== undefined 
-          ? stored.autoReloadMinutes 
-          : getDefaultAutoReload(sessions)
+        const autoReloadMinutes = resolveAutoReloadMinutes(stored.autoReloadMinutes, sessions)
         
         setState({
           data: {
@@ -87,6 +87,7 @@ export function useScheduleManager() {
             sessions,
             autoReloadMinutes,
             importFilter: stored.importFilter,
+            importIssues: stored.importIssues,
           },
           loading: false,
           error: null,
@@ -112,7 +113,9 @@ export function useScheduleManager() {
       conferenceTimeZoneName?: string
       sessions: Session[]
       fetchedAt: string
+      autoReloadMinutes?: number | null
       importFilter?: ImportFilter
+      importIssues?: ScheduleImportIssue[]
     }) => {
       try {
         const key = params.endpointUrl
@@ -132,7 +135,7 @@ export function useScheduleManager() {
         // Sessions outside the import boundary are cut off permanently and
         // never persisted.
         const sessions = applyImportFilter(params.sessions, params.importFilter)
-        const autoReloadMinutes = getDefaultAutoReload(sessions)
+        const autoReloadMinutes = resolveAutoReloadMinutes(params.autoReloadMinutes, sessions)
 
         await saveSchedule({
           key,
@@ -144,6 +147,7 @@ export function useScheduleManager() {
           sessions: sessions.map(s => ({ ...s, start: s.start.toISOString() })),
           autoReloadMinutes,
           importFilter: params.importFilter,
+          importIssues: params.importIssues,
         })
 
         setState({
@@ -157,6 +161,7 @@ export function useScheduleManager() {
             sessions,
             autoReloadMinutes,
             importFilter: params.importFilter,
+            importIssues: params.importIssues,
           },
           loading: false,
           error: null,
@@ -191,6 +196,7 @@ export function useScheduleManager() {
       conferenceTimeZoneName?: string
       sessions: Session[]
       fetchedAt: string
+      importIssues?: ScheduleImportIssue[]
     }) => {
       if (!state.data) {
         throw new Error('No active schedule to update')
@@ -204,30 +210,31 @@ export function useScheduleManager() {
           state.data.conferenceTitle,
           params.conferenceTitle
         )
-        const autoReloadMinutes = state.data.autoReloadMinutes !== undefined 
-          ? state.data.autoReloadMinutes 
-          : getDefaultAutoReload(sessions)
+        const conferenceTimeZoneName = params.conferenceTimeZoneName ?? state.data.conferenceTimeZoneName
+        const autoReloadMinutes = resolveAutoReloadMinutes(state.data.autoReloadMinutes, sessions)
 
         await saveSchedule({
           key: state.data.scheduleKey,
           endpointUrl: state.data.endpointUrl,
           sourceLabel: state.data.sourceLabel,
           conferenceTitle,
-          conferenceTimeZoneName: params.conferenceTimeZoneName,
+          conferenceTimeZoneName,
           fetchedAt: params.fetchedAt,
           sessions: sessions.map(s => ({ ...s, start: s.start.toISOString() })),
           autoReloadMinutes,
           importFilter: state.data.importFilter,
+          importIssues: params.importIssues,
         })
 
         setState({
           data: {
             ...state.data,
             conferenceTitle,
-            conferenceTimeZoneName: params.conferenceTimeZoneName,
+            conferenceTimeZoneName,
             fetchedAt: params.fetchedAt,
             sessions,
             autoReloadMinutes,
+            importIssues: params.importIssues,
           },
           loading: false,
           error: null,

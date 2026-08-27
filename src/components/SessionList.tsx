@@ -1,17 +1,19 @@
 import React from 'react'
 import type { Session } from '../data/normalizeSchedule'
 import type { ViewMode, TimezoneMode } from '../hooks/useViewParams'
-import { formatDayLabel } from '../utils/date'
+import { formatDayLabel, getDayKeyInTimeZone } from '../utils/date'
 import { formatAge, formatRange } from '../utils/relativeTime'
 import { isSessionCurrent, isSessionPast, countPastSessions } from '../utils/congressState'
 import HeartIcon from './HeartIcon'
+import type { ScheduleImportIssue } from '../data/formats/types'
 
-function groupByDay(sessions: Session[]): Array<{ dayKey: string; sessions: Session[] }> {
+function groupByDay(sessions: Session[], timeZone?: string): Array<{ dayKey: string; sessions: Session[] }> {
   const map = new Map<string, Session[]>()
   for (const s of sessions) {
-    const arr = map.get(s.dayKey) ?? []
+    const dayKey = getDayKeyInTimeZone(s.start, timeZone)
+    const arr = map.get(dayKey) ?? []
     arr.push(s)
-    map.set(s.dayKey, arr)
+    map.set(dayKey, arr)
   }
   const out = Array.from(map.entries()).map(([dayKey, sess]) => ({
     dayKey,
@@ -84,6 +86,7 @@ export default function SessionList(props: {
   showDuration: boolean
   timezoneMode: TimezoneMode
   scheduleTimeZoneName?: string
+  importIssues?: ScheduleImportIssue[]
 
   likedIds: Set<string>
   onToggleLike: (id: string) => void
@@ -98,12 +101,16 @@ export default function SessionList(props: {
   const shouldHidePastSessions = props.congressRunning && !props.congressOver && !props.showPastSessions
 
   const pastSessionCount = props.congressRunning && !props.congressOver ? countPastSessions(props.sessions) : 0
-  const grouped = groupByDay(props.sessions)
+  const activeTimeZone = props.timezoneMode === 'schedule' ? props.scheduleTimeZoneName : undefined
+  const grouped = groupByDay(props.sessions, activeTimeZone)
   const age = props.fetchedAt ? formatAge(props.fetchedAt) : null
+  const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown'
   const tzLabel =
     props.timezoneMode === 'device'
-      ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'Device timezone'
-      : (props.scheduleTimeZoneName ?? 'Schedule timezone')
+      ? `Local timezone: ${deviceTimeZone}`
+      : props.scheduleTimeZoneName
+        ? `Schedule timezone: ${props.scheduleTimeZoneName}`
+        : `Local timezone: ${deviceTimeZone} (schedule timezone unavailable)`
 
   // Find the first active (non-past) day group for "Show past sessions" button
   let firstActiveDayKey: string | null = null
@@ -120,6 +127,9 @@ export default function SessionList(props: {
 
   // First day header is always the first group (for "Hide past sessions" button)
   const firstDayKey = grouped.length > 0 ? grouped[0].dayKey : null
+  const metadataDayKey = props.congressOver || props.showPastSessions
+    ? firstDayKey
+    : firstActiveDayKey
 
   return (
     <div>
@@ -149,14 +159,31 @@ export default function SessionList(props: {
               <div className="dayHeaderTitle">{formatDayLabel(g.dayKey)} &ndash; {g.sessions.length} sessions</div>
             </div>
             
-            {/* Show metadata and button below appropriate day header */}
-            {/* When showing past sessions: render under first day. When hiding: render under first active day */}
-            {g.dayKey === (props.showPastSessions ? firstDayKey : firstActiveDayKey) && (
+            {/* After the event, metadata returns to the first day. During the
+                event it follows the first visible active day. */}
+            {g.dayKey === metadataDayKey && (
               <>
                 <div className="muted" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', padding: '8px 14px' }}>
-                  {age ? <>Last download: <span className="mono">{age}</span></> : null}
-                  <span className="mono">Timezone: {tzLabel}</span>
+                  {age ? <span>Last download: <span className="mono">{age}</span></span> : null}
+                  <span className="mono">{tzLabel}</span>
                 </div>
+                {props.importIssues?.length ? (
+                  <details className="importIssues">
+                    <summary>
+                      Import details ({props.importIssues.length} {props.importIssues.length === 1 ? 'warning' : 'warnings'})
+                    </summary>
+                    <p className="muted">These source entries could not be imported completely.</p>
+                    <ul>
+                      {props.importIssues.map((issue, index) => (
+                        <li key={`${issue.code}-${index}`}>
+                          {issue.sessionTitle ? <strong>{issue.sessionTitle}: </strong> : null}
+                          {issue.message}
+                          {issue.rawValue ? <span className="mono"> Source value: {issue.rawValue}</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
                 {pastSessionCount > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 14px 14px' }}>
                     <button className="btn" onClick={props.onTogglePastSessions}>

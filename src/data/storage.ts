@@ -2,6 +2,7 @@ import { get, set, del } from 'idb-keyval'
 import type { Session } from './normalizeSchedule'
 import { addOrUpdateScheduleInLibrary, setLastActiveSchedule } from './scheduleLibrary'
 import type { ImportFilter } from '../utils/importParams'
+import type { ScheduleImportIssue } from './formats/types'
 
 export type ScheduleKey = string
 
@@ -15,6 +16,7 @@ export type StoredSchedule = {
   endpointUrl?: string
   sourceLabel?: string // e.g. file name
   conferenceTitle?: string
+  /** Optional for schedules saved by earlier PWA versions. */
   conferenceTimeZoneName?: string
   fetchedAt: string // ISO
   sessions: Array<Omit<Session, 'start'> & { start: string }>
@@ -25,6 +27,8 @@ export type StoredSchedule = {
    * date range. Sessions outside this range are never stored.
    */
   importFilter?: ImportFilter
+  /** Optional diagnostics; absent on schedules saved by older versions. */
+  importIssues?: ScheduleImportIssue[]
 }
 
 type Index = {

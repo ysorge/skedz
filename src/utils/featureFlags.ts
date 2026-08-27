@@ -12,5 +12,5 @@ function isEnabled(value: string | undefined, defaultValue = true): boolean {
 /** Allow `?url=...&title=...` to override the imported schedule title. */
 export const IMPORT_TITLE_PARAM_ENABLED = isEnabled(import.meta.env.VITE_ENABLE_IMPORT_TITLE_PARAM)
 
-/** Allow `?url=...&start=...&end=...` to cut off sessions outside a date range at import time. */
+/** Allow `start`, `end`, and optional `timezone` parameters for a permanent import date range. */
 export const IMPORT_DATERANGE_PARAM_ENABLED = isEnabled(import.meta.env.VITE_ENABLE_IMPORT_DATERANGE_PARAM)

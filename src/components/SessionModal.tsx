@@ -71,8 +71,10 @@ export default function SessionModal(props: {
   const s = props.session
   const tz =
     props.timezoneMode === 'device'
-      ? (Intl.DateTimeFormat().resolvedOptions().timeZone || 'Device timezone')
-      : (props.scheduleTimeZoneName ?? 'Schedule timezone')
+      ? `Local timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown'}`
+      : props.scheduleTimeZoneName
+        ? `Schedule timezone: ${props.scheduleTimeZoneName}`
+        : `Local timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown'} (schedule timezone unavailable)`
 
   const timeLine = s ? (() => {
     if (props.timezoneMode === 'schedule') {

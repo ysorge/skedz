@@ -47,8 +47,26 @@ export type CanonicalSession = {
   metadata?: Record<string, unknown>
 }
 
+export type ScheduleImportIssue = {
+  /** Stable machine-readable category for tests and future UI changes. */
+  code: 'invalid-start' | 'invalid-end' | 'unsupported-time-zone'
+  /** Plain-text explanation safe to show in the import details UI. */
+  message: string
+  sessionTitle?: string
+  rawValue?: string
+}
+
 export type CanonicalSchedule = {
   sessions: CanonicalSession[]
+
+  /**
+   * True when at least one timestamp has no offset/TZID and therefore needs
+   * an externally selected event time zone before it can be interpreted.
+   */
+  requiresTimeZoneForParsing?: boolean
+
+  /** Entries that were skipped or only partially parsed. */
+  importIssues?: ScheduleImportIssue[]
   
   // Conference/Event metadata
   conferenceTitle?: string
@@ -83,6 +101,11 @@ export type FormatMetadata = {
   description?: string
 }
 
+export type ScheduleParseOptions = {
+  /** IANA time zone used for schedule timestamps that do not carry an offset. */
+  timeZone?: string
+}
+
 /**
  * Parser interface - all format parsers must implement this
  */
@@ -98,7 +121,7 @@ export interface ScheduleParser {
    * @returns Canonical schedule data
    * @throws Error if parsing fails
    */
-  parse(content: string): Promise<CanonicalSchedule> | CanonicalSchedule
+  parse(content: string, options?: ScheduleParseOptions): Promise<CanonicalSchedule> | CanonicalSchedule
   
   /**
    * Validate if the content appears to be this format
