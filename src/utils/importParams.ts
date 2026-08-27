@@ -305,7 +305,7 @@ export function buildImportFilter(
     ? nextLocalDayEnd(rawEndValue, canonicalTimeZone)
     : parseImportDate(rawEnd, canonicalTimeZone)
   if (hasStart && !start) {
-    throw new Error(`The start date/time is invalid in ${canonicalTimeZone}.`)
+    throw new Error(canonicalTimeZone ? `The start date/time is invalid in ${canonicalTimeZone}.` : 'The start date/time is invalid.')
   }
   if (hasEnd && !end) {
     throw new Error(`The end date/time is invalid in ${canonicalTimeZone}.`)
