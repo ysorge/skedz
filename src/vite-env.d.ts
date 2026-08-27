@@ -1,5 +1,15 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_APP_VERSION?: string
+  readonly VITE_ENABLE_IMPORT_TITLE_PARAM?: string
+  readonly VITE_ENABLE_IMPORT_DATERANGE_PARAM?: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}
+
 declare module 'virtual:pwa-register' {
   export interface RegisterSWOptions {
     immediate?: boolean

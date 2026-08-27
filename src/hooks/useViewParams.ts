@@ -37,6 +37,14 @@ export function getDefaultAutoReload(sessions: Session[] | null): number | null 
   return DEFAULT_AUTO_RELOAD_MINUTES
 }
 
+/** Preserve an explicitly stored value, including null ("Never"). */
+export function resolveAutoReloadMinutes(
+  storedValue: number | null | undefined,
+  sessions: Session[] | null
+): number | null {
+  return storedValue !== undefined ? storedValue : getDefaultAutoReload(sessions)
+}
+
 /**
  * Custom hook for managing view parameters with localStorage persistence.
  */

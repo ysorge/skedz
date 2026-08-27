@@ -1,5 +1,14 @@
-import type { ScheduleParser, CanonicalSchedule, CanonicalSession, FormatMetadata } from '../types'
+import type {
+  ScheduleParser,
+  CanonicalSchedule,
+  CanonicalSession,
+  FormatMetadata,
+  ScheduleParseOptions,
+  ScheduleImportIssue,
+} from '../types'
 import { ScheduleSchema } from '../../schema'
+import { parseScheduleDateTime, scheduleDateTimeHasExplicitOffset } from '../parseDateTime'
+import { canonicalizeTimeZone } from '../../../utils/importParams'
 
 /**
  * Parser for JSON (frab-compatible / schedule.json) format
@@ -23,7 +32,7 @@ export class ScheduleJsonParser implements ScheduleParser {
     }
   }
 
-  parse(content: string): CanonicalSchedule {
+  parse(content: string, options?: ScheduleParseOptions): CanonicalSchedule {
     const json = JSON.parse(content)
     const parsed = ScheduleSchema.safeParse(json)
 
@@ -34,8 +43,12 @@ export class ScheduleJsonParser implements ScheduleParser {
 
     const data = parsed.data
     const conf = data.schedule?.conference
+    const conferenceTimeZoneName = canonicalizeTimeZone(options?.timeZone)
+      ?? canonicalizeTimeZone(typeof conf?.time_zone_name === 'string' ? conf.time_zone_name : undefined)
     const days = conf?.days ?? []
     const sessions: CanonicalSession[] = []
+    const importIssues: ScheduleImportIssue[] = []
+    let requiresTimeZoneForParsing = false
 
     for (const day of days) {
       const dayDate = typeof day?.date === 'string' ? day.date : undefined
@@ -49,14 +62,29 @@ export class ScheduleJsonParser implements ScheduleParser {
           let start: Date | null = null
 
           if (iso) {
-            const d = new Date(iso)
-            if (!Number.isNaN(d.getTime())) start = d
+            if (!conferenceTimeZoneName && !scheduleDateTimeHasExplicitOffset(iso)) {
+              requiresTimeZoneForParsing = true
+            }
+            start = parseScheduleDateTime(iso, conferenceTimeZoneName) ?? null
           } else if (dayDate && typeof ev.start === 'string') {
-            const guess = new Date(`${dayDate}T${ev.start}`)
-            if (!Number.isNaN(guess.getTime())) start = guess
+            const rawStart = `${dayDate}T${ev.start}`
+            if (!conferenceTimeZoneName && !scheduleDateTimeHasExplicitOffset(rawStart)) {
+              requiresTimeZoneForParsing = true
+            }
+            start = parseScheduleDateTime(rawStart, conferenceTimeZoneName) ?? null
           }
 
-          if (!start) continue
+          if (!start) {
+            if (importIssues.length < 50) {
+              importIssues.push({
+                code: 'invalid-start',
+                message: 'The start time could not be interpreted; this session was skipped.',
+                sessionTitle: ev.title,
+                rawValue: (iso ?? (dayDate && typeof ev.start === 'string' ? `${dayDate}T${ev.start}` : undefined))?.slice(0, 200),
+              })
+            }
+            continue
+          }
 
           const durationMinutes = this.parseDuration(ev.duration)
           const end = durationMinutes ? new Date(start.getTime() + durationMinutes * 60000) : undefined
@@ -96,22 +124,22 @@ export class ScheduleJsonParser implements ScheduleParser {
 
     let conferenceStart: Date | undefined
     if (typeof conf?.start === 'string') {
-      const d = new Date(conf.start)
-      conferenceStart = Number.isNaN(d.getTime()) ? undefined : d
+      conferenceStart = parseScheduleDateTime(conf.start, conferenceTimeZoneName)
     }
 
     let conferenceEnd: Date | undefined
     if (typeof conf?.end === 'string') {
-      const d = new Date(conf.end)
-      conferenceEnd = Number.isNaN(d.getTime()) ? undefined : d
+      conferenceEnd = parseScheduleDateTime(conf.end, conferenceTimeZoneName)
     }
 
     return {
       sessions,
       conferenceTitle: conf?.title,
-      conferenceTimeZoneName: typeof conf?.time_zone_name === 'string' ? conf.time_zone_name : undefined,
+      conferenceTimeZoneName,
       conferenceStart,
       conferenceEnd,
+      requiresTimeZoneForParsing,
+      importIssues,
     }
   }
 

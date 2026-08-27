@@ -3,3 +3,4 @@ dist
 temp
 .DS_Store
 .vite
+tsconfig.tsbuildinfo

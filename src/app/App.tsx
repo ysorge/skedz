@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, lazy, Suspense, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo, useState, lazy, Suspense, useRef } from 'react'
 import FiltersSidebar from '../components/FiltersSidebar'
 import SessionList from '../components/SessionList'
 import { DEFAULT_FILTERS, applyFilters, uniqSorted, type Filters } from '../utils/filters'
@@ -11,6 +11,11 @@ import { useAutoRefresh } from '../hooks/useAutoRefresh'
 import { isCongressRunning, isCongressOver } from '../utils/congressState'
 import type { Session } from '../data/normalizeSchedule'
 import { updateScheduleTitle } from '../data/storage'
+import { sanitizeImportTitle, type ImportDateOptions, type ImportFilter } from '../utils/importParams'
+import { IMPORT_TITLE_PARAM_ENABLED, IMPORT_DATERANGE_PARAM_ENABLED } from '../utils/featureFlags'
+import type { ScheduleImportIssue } from '../data/formats/types'
+import { getDayKeyInTimeZone } from '../utils/date'
+import { removeImportLinkParams } from '../utils/importLink'
 
 // Lazy load components that aren't needed on initial render
 const EndpointScreen = lazy(() => import('../components/EndpointScreen'))
@@ -52,8 +57,11 @@ export default function App() {
         conferenceTimeZoneName: data.conferenceTimeZoneName,
         sessions: data.sessions,
         fetchedAt: data.fetchedAt,
+        importIssues: data.importIssues,
       })
-    }
+    },
+    scheduleData?.importFilter,
+    scheduleData?.conferenceTimeZoneName
   )
 
   // Local UI state
@@ -104,16 +112,44 @@ export default function App() {
 
   // Check for URL parameter on mount
   const [prefillUrl, setPrefillUrl] = useState<string | null>(null)
+  const [prefillTitle, setPrefillTitle] = useState<string | undefined>(undefined)
+  const [prefillImportOptions, setPrefillImportOptions] = useState<ImportDateOptions | undefined>(undefined)
   const [hasCheckedUrlParam, setHasCheckedUrlParam] = useState(false)
+  const hasProcessedUrlParam = useRef(false)
+
+  const consumeImportLink = useCallback(() => {
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+    const nextUrl = removeImportLinkParams(window.location.href)
+    if (nextUrl !== currentUrl) {
+      window.history.replaceState({}, document.title, nextUrl)
+    }
+
+    setPrefillUrl(null)
+    setPrefillTitle(undefined)
+    setPrefillImportOptions(undefined)
+  }, [])
   
   useEffect(() => {
-    // Only run once on mount
+    // React StrictMode runs mount effects twice in development. A full page
+    // reload still creates a new ref and intentionally processes the link again.
+    if (hasProcessedUrlParam.current) return
+    hasProcessedUrlParam.current = true
+
     const params = new URLSearchParams(window.location.search)
     const urlParam = params.get('url')
     if (urlParam) {
       setPrefillUrl(urlParam)
-      // Remove URL parameter from address bar
-      window.history.replaceState({}, document.title, window.location.pathname)
+
+      if (IMPORT_TITLE_PARAM_ENABLED) {
+        setPrefillTitle(sanitizeImportTitle(params.get('title')))
+      }
+      if (IMPORT_DATERANGE_PARAM_ENABLED) {
+        const start = params.get('start') ?? params.get('startdate') ?? undefined
+        const end = params.get('end') ?? params.get('enddate') ?? undefined
+        const timeZone = params.get('timezone') ?? undefined
+        if (start || end || timeZone) setPrefillImportOptions({ start, end, timeZone })
+      }
+
       // Clear current schedule to show EndpointScreen with prefilled URL
       ;(async () => {
         await clearSchedule()
@@ -122,7 +158,7 @@ export default function App() {
     } else {
       setHasCheckedUrlParam(true)
     }
-  }, []) // Empty array - only run once on mount
+  }, [clearSchedule])
 
   // Load schedule on mount (only if no URL parameter)
   useEffect(() => {
@@ -234,26 +270,35 @@ export default function App() {
   }
 
   // Compute facets for filters
+  const activeTimeZone = viewParams.timezoneMode === 'schedule'
+    ? scheduleData?.conferenceTimeZoneName
+    : undefined
   const facets = useMemo(() => {
     const s = sessions ?? []
     return {
       tracks: uniqSorted(s.map(x => x.track)),
-      days: uniqSorted(s.map(x => x.dayKey)),
+      days: uniqSorted(s.map(x => getDayKeyInTimeZone(x.start, activeTimeZone))),
       rooms: uniqSorted(s.map(x => x.room)),
       types: uniqSorted(s.map(x => x.type)),
       languages: uniqSorted(s.map(x => x.language)),
     }
-  }, [sessions])
+  }, [sessions, activeTimeZone])
+
+  useEffect(() => {
+    if (filters.day !== 'ALL' && !facets.days.includes(filters.day)) {
+      setFilters(previous => ({ ...previous, day: 'ALL' }))
+    }
+  }, [facets.days, filters.day])
 
   // Apply filters
   const filtered = useMemo(() => {
     if (!sessions) return []
-    let result = applyFilters(sessions, filters)
+    let result = applyFilters(sessions, filters, activeTimeZone)
     if (showMyChoicesOnly) {
       result = result.filter(s => likedIds.has(s.id))
     }
     return result
-  }, [sessions, filters, showMyChoicesOnly, likedIds])
+  }, [sessions, filters, showMyChoicesOnly, likedIds, activeTimeZone])
 
   // Handle new schedule loaded from endpoint or file
   async function onLoaded(data: {
@@ -263,6 +308,9 @@ export default function App() {
     conferenceTimeZoneName?: string
     sessions: Session[]
     fetchedAt: string
+    autoReloadMinutes?: number | null
+    importFilter?: ImportFilter
+    importIssues?: ScheduleImportIssue[]
   }) {
     await saveNewSchedule({
       endpointUrl: data.endpointUrl,
@@ -271,11 +319,15 @@ export default function App() {
       conferenceTimeZoneName: data.conferenceTimeZoneName,
       sessions: data.sessions,
       fetchedAt: data.fetchedAt,
+      autoReloadMinutes: data.autoReloadMinutes,
+      importFilter: data.importFilter,
+      importIssues: data.importIssues,
     })
     setFilters(DEFAULT_FILTERS)
     setSelected(null)
-    // Clear prefillUrl so it doesn't trigger modal again when returning to home
-    setPrefillUrl(null)
+    // The direct-import request stays in the address bar until the schedule is
+    // safely stored, allowing a PWA update reload to resume it.
+    consumeImportLink()
   }
 
   // Change source handler
@@ -331,6 +383,9 @@ export default function App() {
         <EndpointScreen 
           initialUrl={scheduleData?.endpointUrl}
           prefillUrl={prefillUrl}
+          prefillTitle={prefillTitle}
+          prefillImportOptions={prefillImportOptions}
+          onImportRequestDismissed={consumeImportLink}
           onLoaded={onLoaded}
           showInstallButton={!!deferredPrompt}
           onInstall={handleInstall}
@@ -383,6 +438,7 @@ export default function App() {
           showDuration={viewParams.showDuration}
           timezoneMode={viewParams.timezoneMode}
           scheduleTimeZoneName={scheduleData?.conferenceTimeZoneName}
+          importIssues={scheduleData?.importIssues}
           likedIds={likedIds}
           onToggleLike={toggleLike}
           congressRunning={congressRunning}

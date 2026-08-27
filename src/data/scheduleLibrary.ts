@@ -11,6 +11,7 @@ export type ScheduleMetadata = {
   endpointUrl?: string
   sourceLabel?: string
   conferenceTitle?: string
+  /** Optional for library entries created by earlier PWA versions. */
   conferenceTimeZoneName?: string
   addedAt: string // ISO timestamp when first added
   lastAccessedAt: string // ISO timestamp when last opened

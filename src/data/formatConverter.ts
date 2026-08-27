@@ -1,4 +1,4 @@
-import type { CanonicalSession, CanonicalSchedule } from './formats/types'
+import type { CanonicalSession, CanonicalSchedule, ScheduleImportIssue } from './formats/types'
 import type { Session } from './normalizeSchedule'
 
 /**
@@ -29,10 +29,14 @@ export function canonicalScheduleToAppFormat(canonical: CanonicalSchedule): {
   sessions: Session[]
   conferenceTitle?: string
   conferenceTimeZoneName?: string
+  requiresTimeZoneForParsing: boolean
+  importIssues: ScheduleImportIssue[]
 } {
   return {
     sessions: canonical.sessions.map(canonicalToSession),
     conferenceTitle: canonical.conferenceTitle,
     conferenceTimeZoneName: canonical.conferenceTimeZoneName,
+    requiresTimeZoneForParsing: canonical.requiresTimeZoneForParsing ?? false,
+    importIssues: canonical.importIssues ?? [],
   }
 }

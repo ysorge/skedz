@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchAndParseSchedule } from '../data/fetchSchedule'
 import { MILLISECONDS_PER_MINUTE, MIN_AUTO_RELOAD_MINUTES } from '../utils/constants'
+import { applyImportFilter, type ImportFilter } from '../utils/importParams'
+import type { ScheduleImportIssue } from '../data/formats/types'
 
 export type RefreshState = {
   busy: boolean
@@ -19,7 +21,10 @@ export function useAutoRefresh(
     conferenceTimeZoneName?: string
     sessions: any[]
     fetchedAt: string
-  }) => Promise<void>
+    importIssues?: ScheduleImportIssue[]
+  }) => Promise<void>,
+  importFilter?: ImportFilter,
+  scheduleTimeZoneName?: string
 ) {
   const [refreshState, setRefreshState] = useState<RefreshState>({
     busy: false,
@@ -27,6 +32,11 @@ export function useAutoRefresh(
   })
 
   const timerRef = useRef<number | null>(null)
+  const onRefreshSuccessRef = useRef(onRefreshSuccess)
+
+  useEffect(() => {
+    onRefreshSuccessRef.current = onRefreshSuccess
+  }, [onRefreshSuccess])
 
   const refreshNow = useCallback(
     async (reason: 'manual' | 'auto') => {
@@ -43,14 +53,28 @@ export function useAutoRefresh(
       setRefreshState({ busy: true, error: null, lastAttemptAt: new Date().toISOString() })
 
       try {
-        const result = await fetchAndParseSchedule(endpointUrl)
+        const result = await fetchAndParseSchedule(
+          endpointUrl,
+          undefined,
+          { timeZone: scheduleTimeZoneName }
+        )
+        if (result.requiresTimeZoneForParsing && !scheduleTimeZoneName) {
+          throw new Error(
+            'The refreshed source contains local times but this older saved schedule has no event time zone. Re-import it once and select the event time zone.'
+          )
+        }
         const timestamp = new Date().toISOString()
 
-        await onRefreshSuccess({
+        // Re-apply the schedule's import boundary so sessions outside the
+        // originally imported range never reappear on refresh.
+        const sessions = applyImportFilter(result.sessions, importFilter)
+
+        await onRefreshSuccessRef.current({
           conferenceTitle: result.conferenceTitle,
           conferenceTimeZoneName: result.conferenceTimeZoneName,
-          sessions: result.sessions,
+          sessions,
           fetchedAt: timestamp,
+          importIssues: result.importIssues,
         })
 
         setRefreshState({
@@ -67,7 +91,7 @@ export function useAutoRefresh(
         })
       }
     },
-    [endpointUrl, refreshState.busy, onRefreshSuccess]
+    [endpointUrl, refreshState.busy, importFilter, scheduleTimeZoneName]
   )
 
   // Set up auto-refresh timer

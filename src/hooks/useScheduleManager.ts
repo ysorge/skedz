@@ -16,8 +16,11 @@ import {
   clearLastActiveSchedule,
   type ScheduleMetadata 
 } from '../data/scheduleLibrary'
-import { getDefaultAutoReload } from './useViewParams'
+import { resolveAutoReloadMinutes } from './useViewParams'
 import { ensureNotificationPermission } from '../utils/reminders'
+import { applyImportFilter, type ImportFilter } from '../utils/importParams'
+import { resolveRefreshedConferenceTitle } from '../data/refreshSchedule'
+import type { ScheduleImportIssue } from '../data/formats/types'
 
 export type ScheduleData = {
   scheduleKey: ScheduleKey
@@ -28,6 +31,8 @@ export type ScheduleData = {
   fetchedAt: string
   sessions: Session[]
   autoReloadMinutes?: number | null
+  importFilter?: ImportFilter
+  importIssues?: ScheduleImportIssue[]
 }
 
 type ScheduleState = {
@@ -65,10 +70,11 @@ export function useScheduleManager() {
       }
       
       if (stored?.sessions?.length) {
-        const sessions = stored.sessions.map(s => ({ ...s, start: new Date(s.start) }))
-        const autoReloadMinutes = stored.autoReloadMinutes !== undefined 
-          ? stored.autoReloadMinutes 
-          : getDefaultAutoReload(sessions)
+        const rawSessions = stored.sessions.map(s => ({ ...s, start: new Date(s.start) }))
+        // Re-apply the stored import boundary defensively, in case sessions
+        // were ever persisted before this was enforced.
+        const sessions = applyImportFilter(rawSessions, stored.importFilter)
+        const autoReloadMinutes = resolveAutoReloadMinutes(stored.autoReloadMinutes, sessions)
         
         setState({
           data: {
@@ -80,6 +86,8 @@ export function useScheduleManager() {
             fetchedAt: stored.fetchedAt,
             sessions,
             autoReloadMinutes,
+            importFilter: stored.importFilter,
+            importIssues: stored.importIssues,
           },
           loading: false,
           error: null,
@@ -105,6 +113,9 @@ export function useScheduleManager() {
       conferenceTimeZoneName?: string
       sessions: Session[]
       fetchedAt: string
+      autoReloadMinutes?: number | null
+      importFilter?: ImportFilter
+      importIssues?: ScheduleImportIssue[]
     }) => {
       try {
         const key = params.endpointUrl
@@ -121,7 +132,10 @@ export function useScheduleManager() {
         const userPrefs = await loadUserPreferences(key)
         console.log('[useScheduleManager] Existing preferences found:', userPrefs.likedSessionIds.length, 'liked sessions')
 
-        const autoReloadMinutes = getDefaultAutoReload(params.sessions)
+        // Sessions outside the import boundary are cut off permanently and
+        // never persisted.
+        const sessions = applyImportFilter(params.sessions, params.importFilter)
+        const autoReloadMinutes = resolveAutoReloadMinutes(params.autoReloadMinutes, sessions)
 
         await saveSchedule({
           key,
@@ -130,8 +144,10 @@ export function useScheduleManager() {
           conferenceTitle: params.conferenceTitle,
           conferenceTimeZoneName: params.conferenceTimeZoneName,
           fetchedAt: params.fetchedAt,
-          sessions: params.sessions.map(s => ({ ...s, start: s.start.toISOString() })),
+          sessions: sessions.map(s => ({ ...s, start: s.start.toISOString() })),
           autoReloadMinutes,
+          importFilter: params.importFilter,
+          importIssues: params.importIssues,
         })
 
         setState({
@@ -142,8 +158,10 @@ export function useScheduleManager() {
             conferenceTitle: params.conferenceTitle,
             conferenceTimeZoneName: params.conferenceTimeZoneName,
             fetchedAt: params.fetchedAt,
-            sessions: params.sessions,
+            sessions,
             autoReloadMinutes,
+            importFilter: params.importFilter,
+            importIssues: params.importIssues,
           },
           loading: false,
           error: null,
@@ -178,35 +196,45 @@ export function useScheduleManager() {
       conferenceTimeZoneName?: string
       sessions: Session[]
       fetchedAt: string
+      importIssues?: ScheduleImportIssue[]
     }) => {
       if (!state.data) {
         throw new Error('No active schedule to update')
       }
 
       try {
-        const autoReloadMinutes = state.data.autoReloadMinutes !== undefined 
-          ? state.data.autoReloadMinutes 
-          : getDefaultAutoReload(params.sessions)
+        // Re-apply the schedule's stored import boundary on every reload so
+        // sessions outside the original range are never re-introduced.
+        const sessions = applyImportFilter(params.sessions, state.data.importFilter)
+        const conferenceTitle = resolveRefreshedConferenceTitle(
+          state.data.conferenceTitle,
+          params.conferenceTitle
+        )
+        const conferenceTimeZoneName = params.conferenceTimeZoneName ?? state.data.conferenceTimeZoneName
+        const autoReloadMinutes = resolveAutoReloadMinutes(state.data.autoReloadMinutes, sessions)
 
         await saveSchedule({
           key: state.data.scheduleKey,
           endpointUrl: state.data.endpointUrl,
           sourceLabel: state.data.sourceLabel,
-          conferenceTitle: params.conferenceTitle,
-          conferenceTimeZoneName: params.conferenceTimeZoneName,
+          conferenceTitle,
+          conferenceTimeZoneName,
           fetchedAt: params.fetchedAt,
-          sessions: params.sessions.map(s => ({ ...s, start: s.start.toISOString() })),
+          sessions: sessions.map(s => ({ ...s, start: s.start.toISOString() })),
           autoReloadMinutes,
+          importFilter: state.data.importFilter,
+          importIssues: params.importIssues,
         })
 
         setState({
           data: {
             ...state.data,
-            conferenceTitle: params.conferenceTitle,
-            conferenceTimeZoneName: params.conferenceTimeZoneName,
+            conferenceTitle,
+            conferenceTimeZoneName,
             fetchedAt: params.fetchedAt,
-            sessions: params.sessions,
+            sessions,
             autoReloadMinutes,
+            importIssues: params.importIssues,
           },
           loading: false,
           error: null,
@@ -254,6 +282,7 @@ export function useScheduleManager() {
           fetchedAt: state.data.fetchedAt,
           sessions: state.data.sessions.map(s => ({ ...s, start: s.start.toISOString() })),
           autoReloadMinutes,
+          importFilter: state.data.importFilter,
         })
 
         setState({
