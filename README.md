@@ -154,8 +154,8 @@ Pull requests are welcome! Please open an issue first to discuss what you would 
 
 ### License
 
-GNU Affero General Public License v3.0 (AGPL-3.0).
-See [LICENSE](LICENSE) for details.
+GNU Affero General Public License v3.0 (AGPL-3.0). See [LICENSE](LICENSE) for details.
+The Skedz logo is not covered by the AGPL. See [BRANDING.md](BRANDING.md) for its usage terms.
 
 ### Author
 
