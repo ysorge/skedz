@@ -650,6 +650,8 @@ input[type="text"][data-active="true"]{
 .time{
   color: var(--time-color);
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .sessionTitle{ 
   font-size:14px; 
@@ -1007,8 +1009,25 @@ dialog::backdrop{
   padding-bottom: 0;
   pointer-events: none;
 }
+/* Share one set of columns across all rows of a day, so titles line up
+   regardless of how wide each row's time text renders */
+.daySectionTable{
+  display:grid;
+  grid-template-columns: auto minmax(0, 1fr) 44px;
+  column-gap:12px;
+}
+.daySectionTable > *{
+  grid-column: 1 / -1;
+}
+.daySectionTable .sessionRowTable{
+  grid-template-columns: subgrid;
+}
+.daySectionTable .sessionTitle{
+  overflow-wrap: anywhere;
+}
 @media (max-width: 600px){
   .sessionRowTable{ gap: 8px; }
+  .daySectionTable{ column-gap: 8px; }
 }
 
 .modalContent h3 {

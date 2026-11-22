@@ -154,7 +154,7 @@ export default function SessionList(props: {
           }
           
           return (
-          <div key={g.dayKey} className="daySection">
+          <div key={g.dayKey} className={props.viewMode === 'table' ? 'daySection daySectionTable' : 'daySection'}>
             <div className="dayHeader">
               <div className="dayHeaderTitle">{formatDayLabel(g.dayKey)} &ndash; {g.sessions.length} sessions</div>
             </div>
